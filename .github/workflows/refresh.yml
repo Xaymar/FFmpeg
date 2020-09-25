@@ -1,0 +1,77 @@
+name: Refresh 
+on:
+  schedule:
+    - cron: '0 * * * *'
+  push:
+    branches:
+      - 'automation'
+      - 'automation-test'
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    name: "Update Mirror"
+    steps:
+    - uses: actions/checkout@v2
+      name: "Checkout"
+    - name: "Configure"
+      shell: bash
+      run: |
+        git config --global user.name 'GitHub Actions'
+        git config --global user.email 'xaymar@users.noreply.github.com'
+        git config pull.ff only 
+        git config pull.rebase true
+    - name: "Remotes"
+      shell: bash
+      run: |
+        git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
+        git remote add -f --tags remote https://git.ffmpeg.org/ffmpeg.git
+        git fetch --all
+    - name: "Update Branches and Trigger Builds"
+      shell: bash
+      run: |
+        declare -a BRANCHES
+        BRANCHES[${#BRANCHES[@]}]="master"
+        BRANCHES[${#BRANCHES[@]}]="release/4.3"
+        BRANCHES[${#BRANCHES[@]}]="release/4.2"
+        BRANCHES[${#BRANCHES[@]}]="release/4.1"
+        BRANCHES[${#BRANCHES[@]}]="release/3.4"
+        BRANCHES[${#BRANCHES[@]}]="release/3.3"
+        BRANCHES[${#BRANCHES[@]}]="release/3.2"
+        BRANCHES[${#BRANCHES[@]}]="release/3.1"
+        BRANCHES[${#BRANCHES[@]}]="release/3.0"
+        BRANCHES[${#BRANCHES[@]}]="release/2.8"
+        BRANCHES[${#BRANCHES[@]}]="release/2.7"
+        BRANCHES[${#BRANCHES[@]}]="release/2.6"
+        BRANCHES[${#BRANCHES[@]}]="release/2.5"
+        BRANCHES[${#BRANCHES[@]}]="release/2.4"
+        BRANCHES[${#BRANCHES[@]}]="release/2.3"
+        BRANCHES[${#BRANCHES[@]}]="release/2.2"
+        BRANCHES[${#BRANCHES[@]}]="release/2.1"
+        BRANCHES[${#BRANCHES[@]}]="release/2.0"
+        BRANCHES[${#BRANCHES[@]}]="release/1.2"
+        BRANCHES[${#BRANCHES[@]}]="release/1.1"
+        BRANCHES[${#BRANCHES[@]}]="release/1.0"
+        BRANCHES[${#BRANCHES[@]}]="release/0.11"
+        BRANCHES[${#BRANCHES[@]}]="release/0.10"
+        BRANCHES[${#BRANCHES[@]}]="release/0.9"
+        BRANCHES[${#BRANCHES[@]}]="release/0.8"
+        BRANCHES[${#BRANCHES[@]}]="release/0.7"
+        BRANCHES[${#BRANCHES[@]}]="release/0.6"
+        BRANCHES[${#BRANCHES[@]}]="release/0.5"
+        BRANCHES[${#BRANCHES[@]}]="oldabi"
+
+        for d in ${BRANCHES[@]}; do
+          echo "Testing ${d}"
+          git diff -s --exit-code origin/${d} remote/${d}
+          if [ $? -ne 0 ]; then
+            git checkout -b ${d} origin/${d}
+            git push --set-upstream origin ${d}
+            curl \
+              -X POST \
+              -H "Authorization: token ${{ secrets.WORKFLOW_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              -d "{\"ref\":\"automation\",\"inputs\":{\"ref\":\"${d}\"}}" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/workflows/build.yml/dispatches"
+          fi
+        done
