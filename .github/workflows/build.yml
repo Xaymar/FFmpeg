@@ -17,8 +17,9 @@ jobs:
       matrix: 
         bits: [ 32, 64 ]
         type: [ "static", "shared" ]
-        license: [ "LGPLv2", "LGPLv3", "GPLv2", "GPLv3" ]
-    name: "Windows (${{ matrix.bits }}bit, ${{ matrix.type }}, ${{ matrix.license }})"
+        license: [ "LGPL", "GPL" ]
+        license_version: [ 2, 3 ]
+    name: "Windows (${{ matrix.bits }}bit, ${{ matrix.type }}, ${{ matrix.license }}v${{ matrix.license_version}})"
     steps:
     - name: "Checkout"
       uses: actions/checkout@v2
@@ -41,15 +42,12 @@ jobs:
           echo "::set-output name=cross_prefix::x86_64-w64-mingw32"
         fi
 
-        # License
-        if [ "${{ matrix.license }}" == "LGPLv2" ]; then
-          echo "::set-output name=flags_license::"
-        elif  [ "${{ matrix.license }}" == "LGPLv3" ]; then
-          echo "::set-output name=flags_license:: --enable-version3"
-        elif  [ "${{ matrix.license }}" == "GPLv2" ]; then
+        # License (GPL vs LGPL, v2 vs v3)
+        if  [ "${{ matrix.license }}" == "GPL" ]; then
           echo "::set-output name=flags_license::--enable-gpl"
-        elif  [ "${{ matrix.license }}" == "GPLv3" ]; then
-          echo "::set-output name=flags_license::--enable-gpl --enable-version3"
+        fi
+        if [ "${{ matrix.license_version }}" == "3" ]; then
+          echo "::set-output name=flags_license_version::--enable-version3"
         fi
 
         # Build Type
@@ -90,7 +88,7 @@ jobs:
           --prefix="${{ github.workspace }}/distrib" \
           --extra-cflags=-O3 --extra-cflags=-mmmx --extra-cflags=-msse --extra-cflags=-msse2 --extra-cflags=-msse3 --extra-cflags=-mssse3 \
           --extra-cflags=-msse4.1 --extra-cflags=-msse4.2 --extra-cflags=-mavx --extra-cflags=-maes --extra-cflags=-mpclmul \
-          ${{ steps.data.outputs.flags_license }} \
+          ${{ steps.data.outputs.flags_license }} ${{ steps.data.outputs.flags_license_version }} \
           ${{ steps.data.outputs.flags_type }} \
           ${{ steps.x264.outputs.flags}}
     - name: "Compile"
