@@ -7,6 +7,9 @@ on:
         required: false
         default: 'master'
 
+env:
+  X264_VERSION: "0.160.3011"
+
 jobs:
   cc:
     runs-on: ubuntu-20.04
@@ -68,6 +71,15 @@ jobs:
           pkg-config \
           mingw-w64 mingw-w64-tools gcc-mingw-w64 g++-mingw-w64 \
           nasm
+    - name: "Dependency: x264 (v${{ env.X264_VERSION }}, GPLv2, shared)"
+      if: startsWith(matrix.license, 'GPL')
+      id: x264
+      shell: bash
+      run: |
+        curl -L -o "x264.zip" "https://github.com/Xaymar/x264/releases/download/${X264_VERSION}/x264-${{ matrix.bits }}-shared-GPLv2.zip"
+        sudo 7z x -o/usr/${{ steps.data.outputs.cross_prefix }}/ x264.zip
+        7z x -o./distrib x264.zip
+        echo "::set-output name=flags::--enable-libx264"
     - name: "Configure"
       shell: bash
       run: |
@@ -79,7 +91,8 @@ jobs:
           --extra-cflags=-O3 --extra-cflags=-mmmx --extra-cflags=-msse --extra-cflags=-msse2 --extra-cflags=-msse3 --extra-cflags=-mssse3 \
           --extra-cflags=-msse4.1 --extra-cflags=-msse4.2 --extra-cflags=-mavx --extra-cflags=-maes --extra-cflags=-mpclmul \
           ${{ steps.data.outputs.flags_license }} \
-          ${{ steps.data.outputs.flags_type }}
+          ${{ steps.data.outputs.flags_type }} \
+          ${{ steps.x264.outputs.flags}}
     - name: "Compile"
       shell: bash
       run: |
