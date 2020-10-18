@@ -62,9 +62,8 @@ jobs:
         BRANCHES[${#BRANCHES[@]}]="oldabi"
 
         for d in ${BRANCHES[@]}; do
-          echo "Testing ${d}"
-          git diff -s --exit-code origin/${d} remote/${d}
-          if [ $? -ne 0 ]; then
+          if ! git diff -s --exit-code origin/${d} remote/${d}; then
+            echo "Branch '${d}' requires update."
             git checkout -b ${d} origin/${d}
             git push --set-upstream origin ${d}
             curl \
@@ -73,5 +72,7 @@ jobs:
               -H "Accept: application/vnd.github.v3+json" \
               -d "{\"ref\":\"automation\",\"inputs\":{\"ref\":\"${d}\"}}" \
               "https://api.github.com/repos/${{ github.repository }}/actions/workflows/build.yml/dispatches"
+          else
+            echo "Branch '${d}' is up to date."
           fi
         done
