@@ -9,6 +9,7 @@ on:
 
 env:
   X264_VERSION: "0.161.3020"
+  FFNVCODEC_VERSION: "n11.0.10.0"
 
 jobs:
   cc:
@@ -78,6 +79,20 @@ jobs:
         sudo 7z x -o/usr/${{ steps.data.outputs.cross_prefix }}/ x264.zip
         7z x -o./distrib x264.zip
         echo "::set-output name=flags::--enable-libx264"
+    - name: "Dependency: NVIDIA Codec Headers (MIT, shared)"
+# Enables CUDA, CUVID, NVENC, NVDEC
+      id: ffnvcodec
+      shell: bash
+      run: |
+        git clone --depth 1 --branch ${FFNVCODEC_VERSION} "https://git.videolan.org/git/ffmpeg/nv-codec-headers.git" /tmp/nv-codec-headers
+        pushd "/tmp/nv-codec-headers" > /dev/null 
+        make PREFIX=/usr/${{ steps.data.outputs.cross_prefix }}
+        sudo make PREFIX=/usr/${{ steps.data.outputs.cross_prefix }} install
+        popd > /dev/null
+        echo "::set-output name=flags::--enable-ffnvcodec --enable-cuda --enable-cuvid --enable-nvdec --enable-nvenc \
+          --enable-decoder=av1_cuvid --enable-decoder=h264_cuvid --enable-decoder=hevc_cuvid --enable-decoder=mjpeg_cuvid --enable-decoder=mpeg1_cuvid --enable-decoder=mpeg2_cuvid --enable-decoder=mpeg4_cuvid --enable-decoder=vc1_cuvid --enable-decoder=vp8_cuvid --enable-decoder=vp9_cuvid \
+          --enable-encoder=h264_nvenc --enable-encoder=hevc_nvenc \
+          --enable-filter=hwupload_cuda --enable-filter=yadif_cuda --enable-filter=scale_cuda --enable-filter=thumbnail_cuda --enable-filter=overlay_cuda"
     - name: "Configure"
       shell: bash
       run: |
@@ -90,9 +105,11 @@ jobs:
           --pkg-config=pkg-config \
           --extra-cflags=-O3 --extra-cflags=-mmmx --extra-cflags=-msse --extra-cflags=-msse2 --extra-cflags=-msse3 --extra-cflags=-mssse3 \
           --extra-cflags=-msse4.1 --extra-cflags=-msse4.2 --extra-cflags=-mavx --extra-cflags=-maes --extra-cflags=-mpclmul \
+          --pkg-config=pkg-config \
           ${{ steps.data.outputs.flags_license }} ${{ steps.data.outputs.flags_license_version }} \
           ${{ steps.data.outputs.flags_type }} \
-          ${{ steps.x264.outputs.flags}}
+          ${{ steps.x264.outputs.flags }} \
+          ${{ steps.ffnvcodec.outputs.flags }}
     - name: "Compile"
       shell: bash
       run: |
