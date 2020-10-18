@@ -1,0 +1,93 @@
+name: Build
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch, Tag or Commit to build'
+        required: false
+        default: 'master'
+
+jobs:
+  cc:
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix: 
+        bits: [ 32, 64 ]
+        type: [ "static", "shared" ]
+        license: [ "LGPLv2", "LGPLv3", "GPLv2", "GPLv3" ]
+    name: "Windows (${{ matrix.bits }}bit, ${{ matrix.type }}, ${{ matrix.license }})"
+    steps:
+    - name: "Checkout"
+      uses: actions/checkout@v2
+      with:
+        ref: "${{ github.event.inputs.ref }}"
+        submodules: "recursive"
+        fetch-depth: 0
+    - name: "Gather Information"
+      id: data
+      shell: bash
+      run: |
+        # Bitness
+        if [ "${{ matrix.bits }}" == "32" ]; then
+          echo "::set-output name=arch::i686"
+          echo "::set-output name=target_os::mingw32"
+          echo "::set-output name=cross_prefix::i686-w64-mingw32"
+        else
+          echo "::set-output name=arch::x86_64"
+          echo "::set-output name=target_os::mingw64"
+          echo "::set-output name=cross_prefix::x86_64-w64-mingw32"
+        fi
+
+        # License
+        if [ "${{ matrix.license }}" == "LGPLv2" ]; then
+          echo "::set-output name=flags_license::"
+        elif  [ "${{ matrix.license }}" == "LGPLv3" ]; then
+          echo "::set-output name=flags_license:: --enable-version3"
+        elif  [ "${{ matrix.license }}" == "GPLv2" ]; then
+          echo "::set-output name=flags_license::--enable-gpl"
+        elif  [ "${{ matrix.license }}" == "GPLv3" ]; then
+          echo "::set-output name=flags_license::--enable-gpl --enable-version3"
+        fi
+
+        # Build Type
+        if [ "${{ matrix.type }}" == "static" ]; then
+          echo "::set-output name=flags_type::--enable-static --disable-shared"
+        else
+          echo "::set-output name=flags_type::--disable-static --enable-shared"
+        fi
+
+        # Commit
+        echo "::set-output name=commit::$(git rev-parse --short=8 HEAD)"
+    - name: "Dependency: Packages"
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install \
+          build-essential git \
+          cmake make ninja-build \
+          pkg-config \
+          mingw-w64 mingw-w64-tools gcc-mingw-w64 g++-mingw-w64 \
+          nasm
+    - name: "Configure"
+      shell: bash
+      run: |
+        ./configure \
+          --arch=${{ steps.data.outputs.arch }} \
+          --target-os=${{ steps.data.outputs.target_os }} \
+          --cross-prefix=${{ steps.data.outputs.cross_prefix }}- \
+          --prefix="${{ github.workspace }}/distrib" \
+          --extra-cflags=-O3 --extra-cflags=-mmmx --extra-cflags=-msse --extra-cflags=-msse2 --extra-cflags=-msse3 --extra-cflags=-mssse3 \
+          --extra-cflags=-msse4.1 --extra-cflags=-msse4.2 --extra-cflags=-mavx --extra-cflags=-maes --extra-cflags=-mpclmul \
+          ${{ steps.data.outputs.flags_license }} \
+          ${{ steps.data.outputs.flags_type }}
+    - name: "Compile"
+      shell: bash
+      run: |
+        make -j $(($(grep ^cpu\\scores /proc/cpuinfo | uniq |  awk '{print $4}') * 2))
+        make install
+    - name: "Upload Artifacts"
+      uses: actions/upload-artifact@v1
+      with:
+        name: ffmpeg-${{ matrix.bits }}-${{ matrix.type }}-${{ matrix.license }}-${{ steps.data.output.commit }}
+        path: distrib
+ 
