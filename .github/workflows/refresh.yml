@@ -70,7 +70,7 @@ jobs:
               -X POST \
               -H "Authorization: token ${{ secrets.WORKFLOW_TOKEN }}" \
               -H "Accept: application/vnd.github.v3+json" \
-              -d "{\"ref\":\"automation\",\"inputs\":{\"ref\":\"${d}\"}}" \
+              -d "{\"ref\":\"${{ github.ref }}\",\"inputs\":{\"ref\":\"${d}\"}}" \
               "https://api.github.com/repos/${{ github.repository }}/actions/workflows/build.yml/dispatches"
           else
             echo "Branch '${d}' is up to date."
