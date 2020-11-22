@@ -8,7 +8,7 @@ on:
         default: 'master'
 
 env:
-  X264_VERSION: "0.160.3011"
+  X264_VERSION: "0.161.3020"
 
 jobs:
   cc:
