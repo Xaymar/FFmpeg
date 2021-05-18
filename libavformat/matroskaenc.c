@@ -158,6 +158,8 @@ typedef struct MatroskaMuxContext {
     int                 default_mode;
 
     uint32_t            segment_uid[4];
+
+    AVRational          time_base;
 } MatroskaMuxContext;
 
 /** 2 bytes * 7 for EBML IDs, 7 1-byte EBML lengths, 6 1-byte uint,
@@ -1814,6 +1816,7 @@ static int mkv_write_header(AVFormatContext *s)
     const AVDictionaryEntry *tag;
     int ret, i, version = 2;
     int64_t creation_time;
+    int64_t time_base = 1;
 
     if (mkv->mode != MODE_WEBM ||
         av_dict_get(s->metadata, "stereo_mode", NULL, 0) ||
@@ -1850,7 +1853,10 @@ static int mkv_write_header(AVFormatContext *s)
         return ret;
     pb = mkv->info.bc;
 
-    put_ebml_uint(pb, MATROSKA_ID_TIMECODESCALE, 1000000);
+    time_base = av_rescale_q(time_base, mkv->time_base, (AVRational){1, 1000000000});
+    av_log(s, AV_LOG_DEBUG, "TimestampScale is: %" PRId64 " ns\n", time_base);
+    put_ebml_uint(pb, MATROSKA_ID_TIMECODESCALE, time_base);
+
     if ((tag = av_dict_get(s->metadata, "title", NULL, 0)))
         put_ebml_string(pb, MATROSKA_ID_TITLE, tag->value);
     if (!(s->flags & AVFMT_FLAG_BITEXACT)) {
@@ -1883,11 +1889,11 @@ static int mkv_write_header(AVFormatContext *s)
         int64_t metadata_duration = get_metadata_duration(s);
 
         if (s->duration > 0) {
-            int64_t scaledDuration = av_rescale(s->duration, 1000, AV_TIME_BASE);
+            int64_t scaledDuration = av_rescale_q(s->duration, AV_TIME_BASE_Q, mkv->time_base);
             put_ebml_float(pb, MATROSKA_ID_DURATION, scaledDuration);
             av_log(s, AV_LOG_DEBUG, "Write early duration from recording time = %" PRIu64 "\n", scaledDuration);
         } else if (metadata_duration > 0) {
-            int64_t scaledDuration = av_rescale(metadata_duration, 1000, AV_TIME_BASE);
+            int64_t scaledDuration = av_rescale_q(metadata_duration, AV_TIME_BASE_Q, mkv->time_base);
             put_ebml_float(pb, MATROSKA_ID_DURATION, scaledDuration);
             av_log(s, AV_LOG_DEBUG, "Write early duration from metadata = %" PRIu64 "\n", scaledDuration);
         } else if (s->pb->seekable & AVIO_SEEKABLE_NORMAL) {
@@ -1948,12 +1954,12 @@ static int mkv_write_header(AVFormatContext *s)
     // after 4k and on a keyframe
     if (IS_SEEKABLE(pb, mkv)) {
         if (mkv->cluster_time_limit < 0)
-            mkv->cluster_time_limit = 5000;
+            mkv->cluster_time_limit = av_rescale_q(5000, (AVRational){1, 1000}, mkv->time_base);
         if (mkv->cluster_size_limit < 0)
             mkv->cluster_size_limit = 5 * 1024 * 1024;
     } else {
         if (mkv->cluster_time_limit < 0)
-            mkv->cluster_time_limit = 1000;
+            mkv->cluster_time_limit = av_rescale_q(1000, (AVRational){1, 1000}, mkv->time_base);
         if (mkv->cluster_size_limit < 0)
             mkv->cluster_size_limit = 32 * 1024;
     }
@@ -2738,8 +2744,8 @@ static int mkv_init(struct AVFormatContext *s)
             track->uid = mkv_get_uid(mkv->tracks, i, &c);
         }
 
-        // ms precision is the de-facto standard timescale for mkv files
-        avpriv_set_pts_info(st, 64, 1, 1000);
+        // Use user-defined timescale.
+        avpriv_set_pts_info(st, 64, mkv->time_base.num, mkv->time_base.den);
 
         if (st->codecpar->codec_type == AVMEDIA_TYPE_ATTACHMENT) {
             if (mkv->mode == MODE_WEBM) {
@@ -2758,6 +2764,10 @@ static int mkv_init(struct AVFormatContext *s)
         track->track_num = mkv->is_dash ? mkv->dash_track_number : nb_tracks;
         track->track_num_size = ebml_num_size(track->track_num);
     }
+
+    // Scale the configured cluster_time_limit.
+    if (mkv->cluster_time_limit >= 0)
+        mkv->cluster_time_limit = av_rescale_q(mkv->cluster_time_limit, (AVRational){1, 1000}, mkv->time_base);
 
     if (mkv->is_dash && nb_tracks != 1)
         return AVERROR(EINVAL);
@@ -2826,6 +2836,7 @@ static const AVOption options[] = {
     { "infer", "For each track type, mark the first track of disposition default as default; if none exists, mark the first track as default.", 0, AV_OPT_TYPE_CONST, { .i64 = DEFAULT_MODE_INFER }, 0, 0, FLAGS, "default_mode" },
     { "infer_no_subs", "For each track type, mark the first track of disposition default as default; for audio and video: if none exists, mark the first track as default.", 0, AV_OPT_TYPE_CONST, { .i64 = DEFAULT_MODE_INFER_NO_SUBS }, 0, 0, FLAGS, "default_mode" },
     { "passthrough", "Use the disposition flag as-is", 0, AV_OPT_TYPE_CONST, { .i64 = DEFAULT_MODE_PASSTHROUGH }, 0, 0, FLAGS, "default_mode" },
+    { "timestamp_precision", "Timestamp precision to use for the entire container", OFFSET(time_base), AV_OPT_TYPE_RATIONAL, { .dbl = 0.001 }, 0.000000001, 1.0, FLAGS},
     { NULL },
 };
 

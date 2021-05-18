@@ -1583,6 +1583,12 @@ bitmap is stored bottom-up. Note that this option does not flip the bitmap
 which has to be done manually beforehand, e.g. by using the vflip filter.
 Default is @var{false} and indicates bitmap is stored top down.
 
+@item timestamp_precision
+Sets the timestamp precision up to 1 nanosecond for Matroska/WebM, which
+can improve detection of constant rate content in demuxers. Please note
+that increasing the precision reduces the maximum possible timestamp that
+can be encoded. Default is @var{1/1000} (1 millisecond).
+
 @end table
 
 @anchor{md5}
