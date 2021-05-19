@@ -76,7 +76,7 @@ jobs:
             BRANCH_REQUIRES_UPDATE=true
           fi
           if ${BRANCH_REQUIRES_UPDATE}; then
-            git push --set-upstream origin ${d}
+            git push --follow-tags --set-upstream origin ${d}
             curl \
               -X POST \
               -H "Authorization: token ${{ secrets.WORKFLOW_TOKEN }}" \
