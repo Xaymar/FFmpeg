@@ -15,7 +15,7 @@ jobs:
   cc:
     runs-on: ubuntu-20.04
     strategy:
-      matrix: 
+      matrix:
         bits: [ 32, 64 ]
         type: [ "static", "shared" ]
         license: [ "LGPL", "GPL" ]
@@ -85,18 +85,15 @@ jobs:
       shell: bash
       run: |
         git clone --depth 1 --branch ${FFNVCODEC_VERSION} "https://git.videolan.org/git/ffmpeg/nv-codec-headers.git" /tmp/nv-codec-headers
-        pushd "/tmp/nv-codec-headers" > /dev/null 
+        pushd "/tmp/nv-codec-headers" > /dev/null
         make PREFIX=/usr/${{ steps.data.outputs.cross_prefix }}
         sudo make PREFIX=/usr/${{ steps.data.outputs.cross_prefix }} install
         popd > /dev/null
-        echo "::set-output name=flags::--enable-ffnvcodec --enable-cuda --enable-cuvid --enable-nvdec --enable-nvenc \
-          --enable-decoder=av1_cuvid --enable-decoder=h264_cuvid --enable-decoder=hevc_cuvid --enable-decoder=mjpeg_cuvid --enable-decoder=mpeg1_cuvid --enable-decoder=mpeg2_cuvid --enable-decoder=mpeg4_cuvid --enable-decoder=vc1_cuvid --enable-decoder=vp8_cuvid --enable-decoder=vp9_cuvid \
-          --enable-encoder=h264_nvenc --enable-encoder=hevc_nvenc \
-          --enable-filter=hwupload_cuda --enable-filter=yadif_cuda --enable-filter=scale_cuda --enable-filter=thumbnail_cuda --enable-filter=overlay_cuda"
+        echo "::set-output name=flags::--enable-cuda --enable-cuvid --enable-nvdec --enable-nvenc"
     - name: "Configure"
       shell: bash
       run: |
-        export PKG_CONFIG_PATH=/usr/${{ steps.data.outputs.cross_prefix }}/lib/pkgconfig
+        export PKG_CONFIG_PATH=/usr/${{ steps.data.outputs.cross_prefix }}/lib/pkgconfig:${PKG_CONFIG_PATH}
         ./configure \
           --arch=${{ steps.data.outputs.arch }} \
           --target-os=${{ steps.data.outputs.target_os }} \
@@ -120,4 +117,3 @@ jobs:
       with:
         name: ffmpeg-${{ matrix.bits }}-${{ matrix.type }}-${{ matrix.license }}v${{ matrix.license_version }}-${{ steps.data.outputs.commit }}
         path: distrib
- 
