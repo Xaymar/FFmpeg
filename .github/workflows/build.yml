@@ -61,6 +61,11 @@ jobs:
 
         # Commit
         echo "::set-output name=commit::$(git rev-parse --short=8 HEAD)"
+
+        # Version
+        echo "::set-output name=version_major::$(cat RELEASE | sed -E 's/([0-9]+)\.([0-9]+)\.([0-9]+)/\1/')"
+        echo "::set-output name=version_minor::$(cat RELEASE | sed -E 's/([0-9]+)\.([0-9]+)\.([0-9]+)/\2/')"
+        echo "::set-output name=version_patch::$(cat RELEASE | sed -E 's/([0-9]+)\.([0-9]+)\.([0-9]+)/\3/')"
     - name: "Dependency: Packages"
       shell: bash
       run: |
@@ -71,8 +76,10 @@ jobs:
           pkg-config \
           mingw-w64 mingw-w64-tools gcc-mingw-w64 g++-mingw-w64 \
           nasm
+
+# libx264 (FFmpeg 0.5 and up, arbitrarily limited to 1.0 because I'm lazy)
     - name: "Dependency: x264 (v${{ env.X264_VERSION }}, GPLv2, shared)"
-      if: startsWith(matrix.license, 'GPL')
+      if: ${{ (steps.data.outputs.version_major >= 1) && startsWith(matrix.license, 'GPL') }}
       id: x264
       shell: bash
       run: |
@@ -80,8 +87,10 @@ jobs:
         sudo 7z x -o/usr/${{ steps.data.outputs.cross_prefix }}/ x264.zip
         7z x -o./distrib x264.zip
         echo "::set-output name=flags::--enable-libx264"
+
+# NVIDIA Codec Headers (FFmpeg 3.x and up)
     - name: "Dependency: NVIDIA Codec Headers (MIT, shared)"
-# Enables CUDA, CUVID, NVENC, NVDEC
+      if: ${{ steps.data.outputs.version_major >= 3 }}
       id: ffnvcodec
       shell: bash
       run: |
@@ -90,7 +99,23 @@ jobs:
         make PREFIX=/usr/${{ steps.data.outputs.cross_prefix }}
         sudo make PREFIX=/usr/${{ steps.data.outputs.cross_prefix }} install
         popd > /dev/null
-        echo "::set-output name=flags::--enable-cuda --enable-cuvid --enable-nvdec --enable-nvenc"
+
+        if [[ ${{ steps.data.outputs.version_major >= 4 }} ]]; then
+          echo "::set-output name=flags::--enable-ffnvcodec --enable-nvdec --enable-nvenc"
+        elif [[ ${{ steps.data.outputs.version_major >= 3 }} ]]; then
+          if [[ ${{ steps.data.outputs.version_minor >= 2 }} ]]; then
+            # 3.2+ has cuda, cuvid, nvenc
+            echo "::set-output name=flags::--enable-cuda --enable-cuvid --enable-nvenc"
+          elif [[ ${{ steps.data.outputs.version_minor >= 1 }} ]]; then
+            # 3.1 has cuda, nvenc
+            echo "::set-output name=flags::--enable-cuda --enable-nvenc"
+          elif [[ ${{ steps.data.outputs.version_minor >= 0 }} ]]; then
+            # 3.0 has nvenc
+            echo "::set-output name=flags::--enable-nvenc"
+          fi
+        fi
+
+# Configure FFmpeg
     - name: "Configure"
       shell: bash
       run: |
