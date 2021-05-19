@@ -17,10 +17,10 @@ jobs:
     strategy:
       max-parallel: 4
       matrix:
-        bits: [ 32, 64 ]
-        type: [ "static", "shared" ]
+        license_version: [ 3, 2 ]
         license: [ "LGPL", "GPL" ]
-        license_version: [ 2, 3 ]
+        type: [ "shared" , "static" ]
+        bits: [ 64, 32 ]
     name: "Windows (${{ matrix.bits }}bit, ${{ matrix.type }}, ${{ matrix.license }}v${{ matrix.license_version}})"
     steps:
     - name: "Checkout"
