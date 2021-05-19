@@ -1,4 +1,4 @@
-name: Refresh 
+name: Refresh
 on:
   schedule:
     - cron: '0 0 * * *'
@@ -19,7 +19,7 @@ jobs:
       run: |
         git config --global user.name 'GitHub Actions'
         git config --global user.email 'xaymar@users.noreply.github.com'
-        git config pull.ff only 
+        git config pull.ff only
         git config pull.rebase true
     - name: "Remotes"
       shell: bash
@@ -32,9 +32,11 @@ jobs:
       run: |
         declare -a BRANCHES
         BRANCHES[${#BRANCHES[@]}]="master"
+        BRANCHES[${#BRANCHES[@]}]="release/4.4"
         BRANCHES[${#BRANCHES[@]}]="release/4.3"
         BRANCHES[${#BRANCHES[@]}]="release/4.2"
         BRANCHES[${#BRANCHES[@]}]="release/4.1"
+        BRANCHES[${#BRANCHES[@]}]="release/4.0"
         BRANCHES[${#BRANCHES[@]}]="release/3.4"
         BRANCHES[${#BRANCHES[@]}]="release/3.3"
         BRANCHES[${#BRANCHES[@]}]="release/3.2"
