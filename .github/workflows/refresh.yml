@@ -63,10 +63,19 @@ jobs:
         BRANCHES[${#BRANCHES[@]}]="release/0.5"
         BRANCHES[${#BRANCHES[@]}]="oldabi"
 
+        echo "Testing branches for differences..."
         for d in ${BRANCHES[@]}; do
-          if ! git diff -s --exit-code origin/${d} remote/${d}; then
-            echo "Branch '${d}' requires update."
+          BRANCH_REQUIRES_UPDATE=false
+          if ! git branch -a | grep origin/${d}; then
+            echo "  '${d}' is missing, creating..."
+            git checkout -b ${d} remote/${d}
+            BRANCH_REQUIRES_UPDATE=true
+          elif ! git diff -s --exit-code origin/${d} remote/${d}; then
+            echo "  '${d}' is out of date, updating..."
             git checkout -b ${d} origin/${d}
+            BRANCH_REQUIRES_UPDATE=true
+          fi
+          if ${BRANCH_REQUIRES_UPDATE}; then
             git push --set-upstream origin ${d}
             curl \
               -X POST \
@@ -74,7 +83,5 @@ jobs:
               -H "Accept: application/vnd.github.v3+json" \
               -d "{\"ref\":\"${{ github.ref }}\",\"inputs\":{\"ref\":\"${d}\"}}" \
               "https://api.github.com/repos/${{ github.repository }}/actions/workflows/build.yml/dispatches"
-          else
-            echo "Branch '${d}' is up to date."
           fi
         done
