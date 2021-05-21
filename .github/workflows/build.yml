@@ -141,5 +141,5 @@ jobs:
     - name: "Upload Artifacts"
       uses: actions/upload-artifact@v1
       with:
-        name: ffmpeg-${{ matrix.bits }}-${{ matrix.type }}-${{ matrix.license }}v${{ matrix.license_version }}-${{ steps.data.outputs.commit }}
+        name: ffmpeg-${{ matrix.bits }}-${{ matrix.type }}-${{ matrix.license }}v${{ matrix.license_version }}-${{ steps.data.outputs.version_major }}.${{ steps.data.outputs.version_minor }}.${{ steps.data.outputs.version_patch }}-${{ steps.data.outputs.commit }}
         path: distrib
