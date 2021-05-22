@@ -11,6 +11,7 @@ env:
   X264_VERSION: "0.161.3049"
   FFNVCODEC_VERSION: "n11.0.10.0"
   AMF_VERSION: "v1.4.18"
+  ZLIB_NG_VERSION: "2.0.3"
 
 jobs:
   cc:
@@ -77,6 +78,24 @@ jobs:
           pkg-config \
           mingw-w64 mingw-w64-tools gcc-mingw-w64 g++-mingw-w64 \
           nasm
+
+# zlib-ng
+    - name: "Dependency: zlib (zlib-ng, v${{ env.ZLIB_NG_VERSION }}, Zlib license, shared)"
+      id: zlib
+      shell: bash
+      run: |
+        git clone --depth 1 --branch ${ZLIB_NG_VERSION} "https://github.com/zlib-ng/zlib-ng" /tmp/zlib-ng
+        pushd "/tmp/zlib-ng" > /dev/null
+        cmake -H. -Bbuild/build \
+          -DCMAKE_TOOLCHAIN_FILE=./cmake/toolchain-mingw-${{ steps.data.outputs.arch }}.cmake \
+          -DCMAKE_BUILD_TYPE=RELEASE -DZLIB_COMPAT=ON -DZLIB_ENABLE_TESTS=OFF -DBUILD_SHARED_LIBS=ON \
+          -DCMAKE_INSTALL_PREFIX=./build/distrib/
+        cmake --build build/build --target install
+        mv ./build/distrib/lib/libzlib.dll.a ./build/distrib/lib/libzlib.lib
+        cp ./build/distrib/lib/libzlib.lib ./build/distrib/lib/libz.lib
+        popd > /dev/null
+        sudo cp -a /tmp/zlib-ng/build/distrib/. ./distrib/
+        sudo cp -a /tmp/zlib-ng/build/distrib/. /usr/${{ steps.data.outputs.cross_prefix }}
 
 # libx264 (FFmpeg 0.5 and up, arbitrarily limited to 1.0 because I'm lazy)
     - name: "Dependency: x264 (v${{ env.X264_VERSION }}, GPLv2, shared)"
