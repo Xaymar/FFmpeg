@@ -102,7 +102,7 @@ jobs:
         popd > /dev/null
 
         if (( "${{ steps.data.outputs.version_major }}" >= 4 )); then
-          echo "::set-output name=flags::--enable-ffnvcodec --enable-nvdec --enable-nvenc"
+          echo "::set-output name=flags::--enable-ffnvcodec --enable-nvdec --enable-cuvid --enable-nvenc"
         elif (( "${{ steps.data.outputs.version_major }}" >= 3 )); then
           if (( "${{ steps.data.outputs.version_minor }}" >= 2 )); then
             # 3.2+ has cuda, cuvid, nvenc
