@@ -8,7 +8,7 @@ on:
         default: 'master'
 
 env:
-  X264_VERSION: "0.161.3020"
+  X264_VERSION: "0.161.3049"
   FFNVCODEC_VERSION: "n11.0.10.0"
 
 jobs:
