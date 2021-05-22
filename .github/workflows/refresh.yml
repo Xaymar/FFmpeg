@@ -67,15 +67,17 @@ jobs:
         echo "Testing branches for differences..."
         for d in ${BRANCHES[@]}; do
           BRANCH_REQUIRES_UPDATE=false
-          if ! git branch -a | grep origin/${d}; then
+          if ! git branch -a | grep origin/${d} > /dev/null; then
             echo "  '${d}' is missing, creating..."
-            git checkout -b ${d} remote/${d}
             BRANCH_REQUIRES_UPDATE=true
-          elif ! git diff -s --exit-code origin/${d} remote/${d}; then
+          elif ! git diff -s --exit-code origin/${d} remote/${d} > /dev/null; then
             echo "  '${d}' is out of date, updating..."
-            git checkout -b ${d} origin/${d}
             BRANCH_REQUIRES_UPDATE=true
           fi
+
+          # Always check out the remote branch.
+          git checkout -b "${d}" "remote/${d}" > /dev/null
+
           if ${BRANCH_REQUIRES_UPDATE}; then
             git push --follow-tags --set-upstream origin ${d}
             curl \
