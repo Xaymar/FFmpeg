@@ -10,6 +10,7 @@ on:
 env:
   X264_VERSION: "0.161.3049"
   FFNVCODEC_VERSION: "n11.0.10.0"
+  AMF_VERSION: "v1.4.18"
 
 jobs:
   cc:
@@ -89,7 +90,7 @@ jobs:
         7z x -o./distrib x264.zip
         echo "::set-output name=flags::--enable-libx264"
 
-# NVIDIA Codec Headers (FFmpeg 3.x and up)
+# NVIDIA Codec Headers (FFmpeg 3.0 and up)
     - name: "Dependency: NVIDIA Codec Headers (MIT, shared)"
       if: ${{ steps.data.outputs.version_major >= 3 }}
       id: ffnvcodec
@@ -116,6 +117,21 @@ jobs:
           fi
         fi
 
+# AMD AMF (FFmpeg 4.0 and up)
+    - name: "Dependency: AMD AMF (MIT, shared)"
+      if: ${{ steps.data.outputs.version_major >= 4 }}
+      id: amf
+      shell: bash
+      run: |
+        git clone --depth 1 --branch ${AMF_VERSION} "https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git" /tmp/amd-amf
+        pushd "/tmp/amd-amf"
+        sudo cp -R amf/public/include/ /usr/${{ steps.data.outputs.cross_prefix }}/include/AMF
+        popd
+
+        if (( "${{ steps.data.outputs.version_major }}" >= 4 )); then
+          echo "::set-output name=flags::--enable-amf"
+        fi
+
 # Configure FFmpeg
     - name: "Configure"
       shell: bash
@@ -133,7 +149,8 @@ jobs:
           ${{ steps.data.outputs.flags_license }} ${{ steps.data.outputs.flags_license_version }} \
           ${{ steps.data.outputs.flags_type }} \
           ${{ steps.x264.outputs.flags }} \
-          ${{ steps.ffnvcodec.outputs.flags }}
+          ${{ steps.ffnvcodec.outputs.flags }} \
+          ${{ steps.amf.outputs.flags }}
     - name: "Compile"
       shell: bash
       run: |
