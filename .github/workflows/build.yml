@@ -86,13 +86,20 @@ jobs:
       run: |
         git clone --depth 1 --branch ${ZLIB_NG_VERSION} "https://github.com/zlib-ng/zlib-ng" /tmp/zlib-ng
         pushd "/tmp/zlib-ng" > /dev/null
-        cmake -H. -Bbuild/build \
-          -DCMAKE_TOOLCHAIN_FILE=./cmake/toolchain-mingw-${{ steps.data.outputs.arch }}.cmake \
-          -DCMAKE_BUILD_TYPE=RELEASE -DZLIB_COMPAT=ON -DZLIB_ENABLE_TESTS=OFF -DBUILD_SHARED_LIBS=ON \
-          -DCMAKE_INSTALL_PREFIX=./build/distrib/
-        cmake --build build/build --target install
-        mv ./build/distrib/lib/libzlib.dll.a ./build/distrib/lib/libzlib.lib
-        cp ./build/distrib/lib/libzlib.lib ./build/distrib/lib/libz.lib
+          cmake -H. -Bbuild/build \
+            -DCMAKE_TOOLCHAIN_FILE=./cmake/toolchain-mingw-${{ steps.data.outputs.arch }}.cmake \
+            -DCMAKE_BUILD_TYPE=RELEASE -DZLIB_COMPAT=ON -DZLIB_ENABLE_TESTS=OFF -DBUILD_SHARED_LIBS=ON \
+            -DCMAKE_INSTALL_PREFIX=./build/distrib/
+          cmake --build build/build --target install
+          pushd "./build/distrib" > /dev/null
+            # Fix ZLIB_COMPAT=ON still adding a suffix.
+            cp ./lib/libzlib.dll.a ./lib/libz.dll.a
+
+            # Generate MSVC compatible .lib file
+            gendef - ./bin/libzlib1.dll > ./lib/libzlib.def
+            ${{ steps.data.outputs.cross_prefix }}-dlltool -d ./lib/libzlib.def -l ./lib/libzlib.lib
+            cp ./lib/libzlib.lib ./lib/libz.lib
+          popd > /dev/null
         popd > /dev/null
         sudo cp -a /tmp/zlib-ng/build/distrib/. ./distrib/
         sudo cp -a /tmp/zlib-ng/build/distrib/. /usr/${{ steps.data.outputs.cross_prefix }}
@@ -160,6 +167,9 @@ jobs:
           --target-os=${{ steps.data.outputs.target_os }} \
           --cross-prefix=${{ steps.data.outputs.cross_prefix }}- \
           --prefix="${{ github.workspace }}/distrib" \
+          --bindir="${{ github.workspace }}/distrib/bin" \
+          --libdir="${{ github.workspace }}/distrib/lib" \
+          --shlibdir="${{ github.workspace }}/distrib/bin" \
           --pkg-config=pkg-config \
           --extra-cflags=-O3 --extra-cflags=-mmmx --extra-cflags=-msse --extra-cflags=-msse2 --extra-cflags=-msse3 --extra-cflags=-mssse3 \
           --extra-cflags=-msse4.1 --extra-cflags=-msse4.2 --extra-cflags=-mavx --extra-cflags=-maes --extra-cflags=-mpclmul \
