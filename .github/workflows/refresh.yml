@@ -22,6 +22,7 @@ jobs:
         git config pull.ff only
         git config pull.rebase true
     - name: "Remotes"
+      if: ${{ github.event_name == 'schedule' }}
       shell: bash
       run: |
         git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
