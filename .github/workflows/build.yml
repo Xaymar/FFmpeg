@@ -6,6 +6,10 @@ on:
         description: 'Branch, Tag or Commit to build'
         required: false
         default: 'master'
+      apply_patches:
+        description: 'Apply custom patches (Boolean)'
+        required: false
+        default: false
 
 env:
   X264_VERSION: "0.161.3049"
@@ -24,13 +28,21 @@ jobs:
         bits: [ 64, 32 ]
     name: "Windows (${{ matrix.bits }}bit, ${{ matrix.type }}, ${{ matrix.license }}v${{ matrix.license_version}})"
     steps:
-    - name: "Checkout"
+    - name: "automation: Check out"
       uses: actions/checkout@v2
       with:
-        ref: "${{ github.event.inputs.ref }}"
         submodules: "recursive"
         fetch-depth: 0
-    - name: "Gather Information"
+
+    - name: "automation: Copy patches to safe directory"
+      if: ${{ github.event.inputs.apply_patches == 'true' }}
+      shell: bash
+      run: |
+        if [[ -d ./patches ]]; then
+          cp -a ./patches /tmp/
+        fi
+
+    - name: "automation: Gather Information"
       id: data
       shell: bash
       run: |
@@ -60,15 +72,66 @@ jobs:
           echo "::set-output name=flags_type::--disable-static --enable-shared"
         fi
 
-        # Commit
-        echo "::set-output name=commit::$(git rev-parse --short=8 HEAD)"
+    - name: "ffmpeg: Check out ${{ github.event.inputs.ref }}"
+      uses: actions/checkout@v2
+      with:
+        ref: "${{ github.event.inputs.ref }}"
+        submodules: "recursive"
+        fetch-depth: 0
 
-        # Version
-        VERSION=$(cat RELEASE)
-        echo "::set-output name=version_major::$(echo ${VERSION} | sed -E 's/([a-z0-9]+)\.([a-z0-9]+)\.([a-z0-9]+)/\1/')"
-        echo "::set-output name=version_minor::$(echo ${VERSION} | sed -E 's/([a-z0-9]+)\.([a-z0-9]+)\.([a-z0-9]+)/\2/')"
-        echo "::set-output name=version_patch::$(echo ${VERSION} | sed -E 's/([a-z0-9]+)\.([a-z0-9]+)\.([a-z0-9]+)/\3/')"
-    - name: "Dependency: Packages"
+    - name: "automation: Detect version (and apply patches if necessary)"
+      id: version
+      shell: bash
+      run: |
+        # Detect Major.Minor.Patch version
+        VERSION=( $(cat RELEASE | sed -E 's/\./ /gi') )
+        VERSION_MAJOR=${VERSION[0]}
+        VERSION_MINOR=${VERSION[1]}
+        if (( ${#VERSION[@]} == 3 )); then
+          VERSION_PATCH=${VERSION[2]}
+        else
+          VERSION_PATCH=0
+        fi
+
+        COMMIT="$(git rev-parse --short=8 HEAD)"
+        echo "FFmpeg v${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}-${COMMIT}"
+
+        # Apply available patches
+        if [[ "${{ github.event.inputs.apply_patches}}" == "true" ]]; then
+          echo "Applying custom patches:"
+
+          declare -a PATCHES
+          if [[ "${{ github.event.inputs.ref }}" == "master" ]]; then
+            PATCHES[${#PATCHES[@]}]="master"
+          else
+            PATCHES[${#PATCHES[@]}]="${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}"
+            PATCHES[${#PATCHES[@]}]="${VERSION_MAJOR}.${VERSION_MINOR}"
+            PATCHES[${#PATCHES[@]}]="${VERSION_MAJOR}"
+          fi
+
+          for p in ${PATCHES[@]}; do
+            if [[ -d "/tmp/patches/${p}" ]]; then
+              echo "  Found patches for ${p}:"
+              for f in /tmp/patches/${p}/*.patch; do
+                echo "    ${f}..."
+                [ -e "$f" ] || continue
+                git apply "$f"
+              done
+            else
+              echo "  No patches for ${p}."
+            fi
+          done
+
+          VERSION_PATCH="${VERSION_PATCH}.patched"
+        fi
+
+        # Set Outputs
+        echo "::set-output name=major::${VERSION_MAJOR}"
+        echo "::set-output name=minor::${VERSION_MINOR}"
+        echo "::set-output name=patch::${VERSION_PATCH}"
+        echo "::set-output name=commit::${COMMIT}"
+
+    - name: "dependency: cmake, make, pkg-config, mingw, nasm"
       shell: bash
       run: |
         sudo apt-get update
@@ -80,7 +143,7 @@ jobs:
           nasm
 
 # zlib-ng
-    - name: "Dependency: zlib (zlib-ng, v${{ env.ZLIB_NG_VERSION }}, Zlib license, shared)"
+    - name: "dependency: zlib (zlib-ng v${{ env.ZLIB_NG_VERSION }}, Zlib license, shared)"
       id: zlib
       shell: bash
       run: |
@@ -105,8 +168,8 @@ jobs:
         sudo cp -a /tmp/zlib-ng/build/distrib/. /usr/${{ steps.data.outputs.cross_prefix }}
 
 # libx264 (FFmpeg 0.5 and up, arbitrarily limited to 1.0 because I'm lazy)
-    - name: "Dependency: x264 (v${{ env.X264_VERSION }}, GPLv2, shared)"
-      if: ${{ (steps.data.outputs.version_major >= 1) && startsWith(matrix.license, 'GPL') }}
+    - name: "dependency: x264 v${{ env.X264_VERSION }} (GPLv2, shared)"
+      if: ${{ (steps.version.outputs.major >= 1) && startsWith(matrix.license, 'GPL') }}
       id: x264
       shell: bash
       run: |
@@ -116,8 +179,8 @@ jobs:
         echo "::set-output name=flags::--enable-libx264"
 
 # NVIDIA Codec Headers (FFmpeg 3.0 and up)
-    - name: "Dependency: NVIDIA Codec Headers (v${{ env.FFNVCODEC_VERSION }}, MIT, shared)"
-      if: ${{ steps.data.outputs.version_major >= 3 }}
+    - name: "dependency: NVIDIA Codec Headers v${{ env.FFNVCODEC_VERSION }} (MIT, shared)"
+      if: ${{ steps.version.outputs.major >= 3 }}
       id: ffnvcodec
       shell: bash
       run: |
@@ -127,24 +190,24 @@ jobs:
         sudo make PREFIX=/usr/${{ steps.data.outputs.cross_prefix }} install
         popd > /dev/null
 
-        if (( "${{ steps.data.outputs.version_major }}" >= 4 )); then
+        if (( "${{ steps.version.outputs.major }}" >= 4 )); then
           echo "::set-output name=flags::--enable-ffnvcodec --enable-nvdec --enable-cuvid --enable-nvenc"
-        elif (( "${{ steps.data.outputs.version_major }}" >= 3 )); then
-          if (( "${{ steps.data.outputs.version_minor }}" >= 2 )); then
+        elif (( "${{ steps.version.outputs.major }}" >= 3 )); then
+          if (( "${{ steps.version.outputs.minor }}" >= 2 )); then
             # 3.2+ has cuda, cuvid, nvenc
             echo "::set-output name=flags::--enable-cuvid --enable-nvenc"
-          elif (( "${{ steps.data.outputs.version_minor }}" >= 1 )); then
+          elif (( "${{ steps.version.outputs.minor }}" >= 1 )); then
             # 3.1 has cuda, nvenc
             echo "::set-output name=flags::--enable-nvenc"
-          elif (( "${{ steps.data.outputs.version_minor }}" >= 0 )); then
+          elif (( "${{ steps.version.outputs.minor }}" >= 0 )); then
             # 3.0 has nvenc
             echo "::set-output name=flags::--enable-nvenc"
           fi
         fi
 
 # AMD AMF (FFmpeg 4.0 and up)
-    - name: "Dependency: AMD AMF (v${{ env.AMF_VERSION }}, MIT, shared)"
-      if: ${{ steps.data.outputs.version_major >= 4 }}
+    - name: "dependency: AMD AMF (v${{ env.AMF_VERSION }}, MIT, shared)"
+      if: ${{ steps.version.outputs.major >= 4 }}
       id: amf
       shell: bash
       run: |
@@ -153,12 +216,12 @@ jobs:
         sudo cp -R amf/public/include/ /usr/${{ steps.data.outputs.cross_prefix }}/include/AMF
         popd
 
-        if (( "${{ steps.data.outputs.version_major }}" >= 4 )); then
+        if (( "${{ steps.version.outputs.major }}" >= 4 )); then
           echo "::set-output name=flags::--enable-amf"
         fi
 
 # Configure FFmpeg
-    - name: "Configure"
+    - name: "ffmpeg: Configure"
       shell: bash
       run: |
         export PKG_CONFIG_PATH=/usr/${{ steps.data.outputs.cross_prefix }}/lib/pkgconfig:${PKG_CONFIG_PATH}
@@ -179,13 +242,19 @@ jobs:
           ${{ steps.x264.outputs.flags }} \
           ${{ steps.ffnvcodec.outputs.flags }} \
           ${{ steps.amf.outputs.flags }}
-    - name: "Compile"
+
+    - name: "ffmpeg: Compile"
       shell: bash
       run: |
         make -j 4
+
+    - name: "ffmpeg: Install"
+      shell: bash
+      run: |
         make install
-    - name: "Upload Artifacts"
+
+    - name: "automation: Upload Artifacts"
       uses: actions/upload-artifact@v1
       with:
-        name: ffmpeg-${{ matrix.bits }}-${{ matrix.type }}-${{ matrix.license }}v${{ matrix.license_version }}-${{ steps.data.outputs.version_major }}.${{ steps.data.outputs.version_minor }}.${{ steps.data.outputs.version_patch }}-${{ steps.data.outputs.commit }}
+        name: ffmpeg-${{ matrix.bits }}-${{ matrix.type }}-${{ matrix.license }}v${{ matrix.license_version }}-${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}-${{ steps.version.outputs.commit }}
         path: distrib

@@ -81,11 +81,21 @@ jobs:
 
           if ${BRANCH_REQUIRES_UPDATE}; then
             git push --follow-tags --set-upstream origin ${d}
-            curl \
+
+            # Trigger build without custom patches
+            curl -s --show-error \
               -X POST \
               -H "Authorization: token ${{ secrets.WORKFLOW_TOKEN }}" \
               -H "Accept: application/vnd.github.v3+json" \
               -d "{\"ref\":\"${{ github.ref }}\",\"inputs\":{\"ref\":\"${d}\"}}" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/workflows/build.yml/dispatches"
+
+            # Trigger build with custom patches
+            curl -s --show-error \
+              -X POST \
+              -H "Authorization: token ${{ secrets.WORKFLOW_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              -d "{\"ref\":\"${{ github.ref }}\",\"inputs\":{\"ref\":\"${d}\",\"apply_patches\":\"true\"}}" \
               "https://api.github.com/repos/${{ github.repository }}/actions/workflows/build.yml/dispatches"
           fi
         done
@@ -97,10 +107,19 @@ jobs:
         BRANCHES[${#BRANCHES[@]}]="master"
 
         for d in ${BRANCHES[@]}; do
-          curl \
+          # Trigger build without custom patches
+          curl -s --show-error \
             -X POST \
             -H "Authorization: token ${{ secrets.WORKFLOW_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             -d "{\"ref\":\"${{ github.ref }}\",\"inputs\":{\"ref\":\"${d}\"}}" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/build.yml/dispatches"
+
+          # Trigger build with custom patches
+          curl -s --show-error \
+            -X POST \
+            -H "Authorization: token ${{ secrets.WORKFLOW_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -d "{\"ref\":\"${{ github.ref }}\",\"inputs\":{\"ref\":\"${d}\",\"apply_patches\":\"true\"}}" \
             "https://api.github.com/repos/${{ github.repository }}/actions/workflows/build.yml/dispatches"
         done
