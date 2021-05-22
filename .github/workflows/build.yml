@@ -90,7 +90,7 @@ jobs:
         echo "::set-output name=flags::--enable-libx264"
 
 # NVIDIA Codec Headers (FFmpeg 3.0 and up)
-    - name: "Dependency: NVIDIA Codec Headers (MIT, shared)"
+    - name: "Dependency: NVIDIA Codec Headers (v${{ env.FFNVCODEC_VERSION }}, MIT, shared)"
       if: ${{ steps.data.outputs.version_major >= 3 }}
       id: ffnvcodec
       shell: bash
@@ -117,7 +117,7 @@ jobs:
         fi
 
 # AMD AMF (FFmpeg 4.0 and up)
-    - name: "Dependency: AMD AMF (MIT, shared)"
+    - name: "Dependency: AMD AMF (v${{ env.AMF_VERSION }}, MIT, shared)"
       if: ${{ steps.data.outputs.version_major >= 4 }}
       id: amf
       shell: bash
