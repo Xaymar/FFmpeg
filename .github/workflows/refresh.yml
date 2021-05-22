@@ -94,8 +94,6 @@ jobs:
       run: |
         declare -a BRANCHES
         BRANCHES[${#BRANCHES[@]}]="master"
-        BRANCHES[${#BRANCHES[@]}]="release/4.4"
-        BRANCHES[${#BRANCHES[@]}]="release/3.4"
 
         for d in ${BRANCHES[@]}; do
           curl \
