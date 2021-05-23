@@ -154,25 +154,10 @@ jobs:
       id: zlib
       shell: bash
       run: |
-        git clone --depth 1 --branch ${ZLIB_NG_VERSION} "https://github.com/zlib-ng/zlib-ng" /tmp/zlib-ng
-        pushd "/tmp/zlib-ng" > /dev/null
-          cmake -H. -Bbuild/build \
-            -DCMAKE_TOOLCHAIN_FILE=./cmake/toolchain-mingw-${{ steps.data.outputs.arch }}.cmake \
-            -DCMAKE_BUILD_TYPE=RELEASE -DZLIB_COMPAT=ON -DZLIB_ENABLE_TESTS=OFF -DBUILD_SHARED_LIBS=ON \
-            -DCMAKE_INSTALL_PREFIX=./build/distrib/
-          cmake --build build/build --target install
-          pushd "./build/distrib" > /dev/null
-            # Fix ZLIB_COMPAT=ON still adding a suffix.
-            cp ./lib/libzlib.dll.a ./lib/libz.dll.a
-
-            # Generate MSVC compatible .lib file
-            gendef - ./bin/libzlib1.dll > ./lib/libzlib.def
-            ${{ steps.data.outputs.cross_prefix }}-dlltool -d ./lib/libzlib.def -l ./lib/libzlib.lib
-            cp ./lib/libzlib.lib ./lib/libz.lib
-          popd > /dev/null
-        popd > /dev/null
-        sudo cp -a /tmp/zlib-ng/build/distrib/. /usr/${{ steps.data.outputs.cross_prefix }}
-        cp -a /tmp/zlib-ng/build/distrib/bin/*.dll ./distrib/bin/
+        curl -L -o "/tmp/zlib.zip" "https://github.com/Xaymar/zlib-ng/releases/download/${ZLIB_NG_VERSION}/zlib-ng-${{ matrix.bits }}.zip"
+        7z x -o/tmp/zlib/ "/tmp/zlib.zip"
+        sudo cp -a /tmp/zlib/. /usr/${{ steps.data.outputs.cross_prefix }}/
+        cp -a /tmp/zlib/bin/*.dll ./distrib/bin/
 
 # libx264 (FFmpeg 0.5 and up, arbitrarily limited to 1.0 because I'm lazy)
     - name: "dependency: x264 v${{ env.X264_VERSION }} (GPLv2, shared)"
