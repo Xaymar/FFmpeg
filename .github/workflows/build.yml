@@ -6,10 +6,6 @@ on:
         description: 'Branch, Tag or Commit to build'
         required: false
         default: 'master'
-      apply_patches:
-        description: 'Apply custom patches (Boolean)'
-        required: false
-        default: false
 
 env:
   X264_VERSION: "0.161.3049"
@@ -26,7 +22,8 @@ jobs:
         license: [ "GPL", "LGPL" ]
         type: [ "shared" ]
         bits: [ 64 ]
-    name: "Windows (${{ matrix.bits }}bit, ${{ matrix.type }}, ${{ matrix.license }}v${{ matrix.license_version}})"
+        patches: [ true, false ]
+    name: "Windows (${{ matrix.bits }}bit, ${{ matrix.type }}, ${{ matrix.license }}v${{ matrix.license_version}}, patched=${{ matrix.patches }})"
     steps:
     - name: "automation: Check out"
       uses: actions/checkout@v2
@@ -35,7 +32,7 @@ jobs:
         fetch-depth: 0
 
     - name: "automation: Copy patches to safe directory"
-      if: ${{ github.event.inputs.apply_patches == 'true' }}
+      if: ${{ matrix.patches  == 'true' }}
       shell: bash
       run: |
         if [[ -d ./patches ]]; then
@@ -97,7 +94,7 @@ jobs:
         echo "FFmpeg v${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}-${COMMIT}"
 
         # Apply available patches
-        if [[ "${{ github.event.inputs.apply_patches}}" == "true" ]]; then
+        if [[ "${{ matrix.patches }}" == "true" ]]; then
           echo "Applying custom patches:"
 
           declare -a PATCHES
@@ -122,7 +119,7 @@ jobs:
             fi
           done
 
-          VERSION_PATCH="${VERSION_PATCH}.patched"
+          VERSION_PATCH="${VERSION_PATCH}-patched"
         fi
 
         # Set Outputs
