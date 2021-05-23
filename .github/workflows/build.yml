@@ -132,10 +132,10 @@ jobs:
         elif (( "${{ steps.data.outputs.version_major }}" >= 3 )); then
           if (( "${{ steps.data.outputs.version_minor }}" >= 2 )); then
             # 3.2+ has cuda, cuvid, nvenc
-            echo "::set-output name=flags::--enable-cuda --enable-cuvid --enable-nvenc"
+            echo "::set-output name=flags::--enable-cuvid --enable-nvenc"
           elif (( "${{ steps.data.outputs.version_minor }}" >= 1 )); then
             # 3.1 has cuda, nvenc
-            echo "::set-output name=flags::--enable-cuda --enable-nvenc"
+            echo "::set-output name=flags::--enable-nvenc"
           elif (( "${{ steps.data.outputs.version_minor }}" >= 0 )); then
             # 3.0 has nvenc
             echo "::set-output name=flags::--enable-nvenc"
