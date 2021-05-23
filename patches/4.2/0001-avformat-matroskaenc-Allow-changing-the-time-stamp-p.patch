@@ -1,6 +1,6 @@
-From 3996cdc26aab55db5b4213bac039c8c353100ca5 Mon Sep 17 00:00:00 2001
+From 0d97943b55946b590216e7e8421fac1900352b5b Mon Sep 17 00:00:00 2001
 From: Michael Fabian 'Xaymar' Dirks <info@xaymar.com>
-Date: Sat, 22 May 2021 23:13:13 +0200
+Date: Sun, 23 May 2021 20:17:00 +0200
 Subject: [PATCH] avformat/matroskaenc: Allow changing the time stamp precision
  via option
 
@@ -10,10 +10,12 @@ time stamps in the Matroska container up to 1 nanosecond, which can aid
 with the proper detection of constant and variable rate content.
 
 Work-around fix for: 259, 6406, 7927, 8909 and 9124.
+
+Signed-off-by: Michael Fabian 'Xaymar' Dirks <michael.dirks@xaymar.com>
 ---
  doc/muxers.texi           |  9 +++++++++
- libavformat/matroskaenc.c | 33 ++++++++++++++++++++++++++-------
- 2 files changed, 35 insertions(+), 7 deletions(-)
+ libavformat/matroskaenc.c | 34 +++++++++++++++++++++++++++-------
+ 2 files changed, 36 insertions(+), 7 deletions(-)
 
 diff --git a/doc/muxers.texi b/doc/muxers.texi
 index b109297963..30fcd4df4a 100644
@@ -33,33 +35,33 @@ index b109297963..30fcd4df4a 100644
 +Default is @var{1/1000} (1 millisecond).
 +
  @end table
- 
+
  For example a 3D WebM clip can be created using the following command line:
 diff --git a/libavformat/matroskaenc.c b/libavformat/matroskaenc.c
-index ad7b0bf2c6..832a008930 100644
+index ad7b0bf2c6..a057c735e8 100644
 --- a/libavformat/matroskaenc.c
 +++ b/libavformat/matroskaenc.c
 @@ -161,6 +161,8 @@ typedef struct MatroskaMuxContext {
      int64_t *stream_duration_offsets;
- 
+
      int allow_raw_vfw;
 +
 +    AVRational time_base;
  } MatroskaMuxContext;
- 
+
  /** 2 bytes * 7 for EBML IDs, 7 1-byte EBML lengths, 6 1-byte uint,
 @@ -1863,6 +1865,7 @@ static int mkv_write_header(AVFormatContext *s)
      AVDictionaryEntry *tag;
      int ret, i, version = 2;
      int64_t creation_time;
 +    int64_t time_base = 1;
- 
+
      if (!strcmp(s->oformat->name, "webm")) {
          mkv->mode      = MODE_WEBM;
 @@ -1870,6 +1873,14 @@ static int mkv_write_header(AVFormatContext *s)
      } else
          mkv->mode = MODE_MATROSKAv2;
- 
+
 +    // WebM requires a timestamp precision of 1ms.
 +    if (mkv->mode == MODE_WEBM) {
 +        if (av_cmp_q(mkv->time_base, (AVRational){1, 1000}) != 0) {
@@ -74,7 +76,7 @@ index ad7b0bf2c6..832a008930 100644
 @@ -1917,7 +1928,10 @@ static int mkv_write_header(AVFormatContext *s)
          return ret;
      pb = mkv->info_bc;
- 
+
 -    put_ebml_uint(pb, MATROSKA_ID_TIMECODESCALE, 1000000);
 +    time_base = av_rescale_q(time_base, mkv->time_base, (AVRational){1, 1000000000});
 +    av_log(s, AV_LOG_DEBUG, "TimestampScale is: %" PRId64 " ns\n", time_base);
@@ -85,7 +87,7 @@ index ad7b0bf2c6..832a008930 100644
      if (!(s->flags & AVFMT_FLAG_BITEXACT)) {
 @@ -1959,11 +1973,11 @@ static int mkv_write_header(AVFormatContext *s)
          int64_t metadata_duration = get_metadata_duration(s);
- 
+
          if (s->duration > 0) {
 -            int64_t scaledDuration = av_rescale(s->duration, 1000, AV_TIME_BASE);
 +            int64_t scaledDuration = av_rescale_q(s->duration, AV_TIME_BASE_Q, mkv->time_base);
@@ -112,31 +114,38 @@ index ad7b0bf2c6..832a008930 100644
          if (mkv->cluster_size_limit < 0)
              mkv->cluster_size_limit = 32 * 1024;
      }
-@@ -2752,10 +2766,14 @@ static int mkv_init(struct AVFormatContext *s)
+@@ -2723,6 +2737,7 @@ static int webm_query_codec(enum AVCodecID codec_id, int std_compliance)
+
+ static int mkv_init(struct AVFormatContext *s)
+ {
++    MatroskaMuxContext *mkv = s->priv_data;
+     int i;
+
+     if (s->nb_streams > MAX_TRACKS) {
+@@ -2752,10 +2767,14 @@ static int mkv_init(struct AVFormatContext *s)
      }
- 
+
      for (i = 0; i < s->nb_streams; i++) {
 -        // ms precision is the de-facto standard timescale for mkv files
 -        avpriv_set_pts_info(s->streams[i], 64, 1, 1000);
 +        // Use user-defined timescale.
-+        avpriv_set_pts_info(st, 64, mkv->time_base.num, mkv->time_base.den);
++        avpriv_set_pts_info(s->streams[i], 64, mkv->time_base.num, mkv->time_base.den);
      }
- 
+
 +    // Scale the configured cluster_time_limit.
 +    if (mkv->cluster_time_limit >= 0)
 +        mkv->cluster_time_limit = av_rescale_q(mkv->cluster_time_limit, (AVRational){1, 1000}, mkv->time_base);
 +
      return 0;
  }
- 
-@@ -2815,6 +2833,7 @@ static const AVOption options[] = {
+
+@@ -2815,6 +2834,7 @@ static const AVOption options[] = {
      { "live", "Write files assuming it is a live stream.", OFFSET(is_live), AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, FLAGS },
      { "allow_raw_vfw", "allow RAW VFW mode", OFFSET(allow_raw_vfw), AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, FLAGS },
      { "write_crc32", "write a CRC32 element inside every Level 1 element", OFFSET(write_crc), AV_OPT_TYPE_BOOL, { .i64 = 1 }, 0, 1, FLAGS },
 +    { "timestamp_precision", "Timestamp precision to use for the entire container", OFFSET(time_base), AV_OPT_TYPE_RATIONAL, { .dbl = 0.001 }, 0.000000001, INT_MAX, FLAGS},
      { NULL },
  };
- 
--- 
-2.31.1.windows.1
 
+--
+2.31.1.windows.1
