@@ -131,6 +131,13 @@ jobs:
         echo "::set-output name=patch::${VERSION_PATCH}"
         echo "::set-output name=commit::${COMMIT}"
 
+        # Create distrib directory
+        mkdir distrib
+        mkdir distrib/bin
+        mkdir distrib/lib
+        mkdir distrib/include
+        mkdir distrib/share
+
     - name: "dependency: cmake, make, pkg-config, mingw, nasm"
       shell: bash
       run: |
@@ -164,8 +171,8 @@ jobs:
             cp ./lib/libzlib.lib ./lib/libz.lib
           popd > /dev/null
         popd > /dev/null
-        sudo cp -a /tmp/zlib-ng/build/distrib/. ./distrib/
         sudo cp -a /tmp/zlib-ng/build/distrib/. /usr/${{ steps.data.outputs.cross_prefix }}
+        cp -a /tmp/zlib-ng/build/distrib/bin/*.dll ./distrib/bin/
 
 # libx264 (FFmpeg 0.5 and up, arbitrarily limited to 1.0 because I'm lazy)
     - name: "dependency: x264 v${{ env.X264_VERSION }} (GPLv2, shared)"
@@ -173,9 +180,10 @@ jobs:
       id: x264
       shell: bash
       run: |
-        curl -L -o "x264.zip" "https://github.com/Xaymar/x264/releases/download/${X264_VERSION}/x264-${{ matrix.bits }}-shared-GPLv2.zip"
-        sudo 7z x -o/usr/${{ steps.data.outputs.cross_prefix }}/ x264.zip
-        7z x -o./distrib x264.zip
+        curl -L -o "/tmp/x264.zip" "https://github.com/Xaymar/x264/releases/download/${X264_VERSION}/x264-${{ matrix.bits }}-shared-GPLv2.zip"
+        7z x -o/tmp/x264/ "/tmp/x264.zip"
+        sudo cp -a /tmp/x264/. /usr/${{ steps.data.outputs.cross_prefix }}/
+        cp -a /tmp/x264/bin/*.dll ./distrib/bin/
         echo "::set-output name=flags::--enable-libx264"
 
 # NVIDIA Codec Headers (FFmpeg 3.0 and up)
@@ -252,6 +260,8 @@ jobs:
       shell: bash
       run: |
         make install
+        # Move .lib files which are in the wrong place.
+        mv ./distrib/bin/*.lib ./distrib/lib/
 
     - name: "automation: Upload Artifacts"
       uses: actions/upload-artifact@v1
