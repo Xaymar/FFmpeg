@@ -24,8 +24,8 @@ jobs:
       matrix:
         license_version: [ 3, 2 ]
         license: [ "GPL", "LGPL" ]
-        type: [ "shared" , "static" ]
-        bits: [ 64, 32 ]
+        type: [ "shared" ]
+        bits: [ 64 ]
     name: "Windows (${{ matrix.bits }}bit, ${{ matrix.type }}, ${{ matrix.license }}v${{ matrix.license_version}})"
     steps:
     - name: "automation: Check out"
