@@ -8,7 +8,7 @@ on:
         default: 'master'
 
 env:
-  X264_VERSION: "0.161.3049"
+  X264_VERSION: "0.163.3060"
   FFNVCODEC_VERSION: "n11.0.10.0"
   AMF_VERSION: "v1.4.18"
   ZLIB_NG_VERSION: "2.0.3"
