@@ -12,17 +12,18 @@ env:
   FFNVCODEC_VERSION: "n11.0.10.0"
   AMF_VERSION: "v1.4.18"
   ZLIB_NG_VERSION: "2.0.3"
+  AOM_VERSION: "v3.1.2.115"
 
 jobs:
   cc:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        license_version: [ 3, 2 ]
-        license: [ "GPL", "LGPL" ]
+        license: [ "LGPL", "GPL" ]
+        license_version: [ 2, 3 ]
         type: [ "shared" ]
         bits: [ 64 ]
-        patches: [ true, false ]
+        patches: [ false, true ]
     name: "Windows (${{ matrix.bits }}bit, ${{ matrix.type }}, ${{ matrix.license }}v${{ matrix.license_version}}, patched=${{ matrix.patches }})"
     steps:
     - name: "automation: Check out"
@@ -146,27 +147,35 @@ jobs:
           mingw-w64 mingw-w64-tools gcc-mingw-w64 g++-mingw-w64 \
           nasm
 
-# zlib-ng
-    - name: "dependency: zlib (zlib-ng v${{ env.ZLIB_NG_VERSION }}, Zlib license, shared)"
-      id: zlib
+# AMD AMF (FFmpeg 4.0 and up)
+    - name: "dependency: AMD AMF ${{ env.AMF_VERSION }} (MIT, shared)"
+      if: ${{ steps.version.outputs.major >= 4 }}
+      id: amf
       shell: bash
       run: |
-        curl -L -o "/tmp/zlib.zip" "https://github.com/Xaymar/zlib-ng/releases/download/${ZLIB_NG_VERSION}/zlib-ng-${{ matrix.bits }}.zip"
-        7z x -o/tmp/zlib/ "/tmp/zlib.zip"
-        sudo cp -a /tmp/zlib/. /usr/${{ steps.data.outputs.cross_prefix }}/
-        cp -a /tmp/zlib/bin/*.dll ./distrib/bin/
+        git clone --depth 1 --branch ${AMF_VERSION} "https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git" /tmp/amd-amf
+        pushd "/tmp/amd-amf"
+        sudo cp -R amf/public/include/ /usr/${{ steps.data.outputs.cross_prefix }}/include/AMF
+        popd
 
-# libx264 (FFmpeg 0.5 and up, arbitrarily limited to 1.0 because I'm lazy)
-    - name: "dependency: x264 v${{ env.X264_VERSION }} (GPLv2, shared)"
-      if: ${{ (steps.version.outputs.major >= 1) && startsWith(matrix.license, 'GPL') }}
-      id: x264
+        if (( "${{ steps.version.outputs.major }}" >= 4 )); then
+          echo "::set-output name=flags::--enable-amf"
+        fi
+
+# AOM (FFmpeg 4.0 and up)
+    - name: "dependency: AOM ${{ env.AOM_VERSION}} (BSD 2-clause, shared)"
+      if: ${{ (steps.version.outputs.major >= 4) && (matrix.bits == 64) }}
+      id: aom
       shell: bash
       run: |
-        curl -L -o "/tmp/x264.zip" "https://github.com/Xaymar/x264/releases/download/${X264_VERSION}/x264-${{ matrix.bits }}-shared-GPLv2.zip"
-        7z x -o/tmp/x264/ "/tmp/x264.zip"
-        sudo cp -a /tmp/x264/. /usr/${{ steps.data.outputs.cross_prefix }}/
-        cp -a /tmp/x264/bin/*.dll ./distrib/bin/
-        echo "::set-output name=flags::--enable-libx264"
+        curl -L -o "/tmp/aom.7z" "https://github.com/Xaymar/aom/releases/download/${AOM_VERSION}/aom-windows-${{ matrix.bits }}-shared.7z"
+        7z x -o/tmp/aom "/tmp/aom.7z"
+        sed -i -E "s/^prefix=.*$/prefix=\/usr\/${CROSS}/g" /tmp/aom/lib/pkgconfig/aom.pc
+        cp /tmp/aom/lib/pkgconfig/aom.pc /tmp/aom/lib/pkgconfig/libaom.pc
+        sudo cp -a /tmp/aom/. /usr/${{ steps.data.outputs.cross_prefix }}/
+        cp -a /tmp/aom/bin/*.dll ./distrib/bin/
+        echo "::set-output name=flags::--enable-libaom"
+
 
 # NVIDIA Codec Headers (FFmpeg 3.0 and up)
     - name: "dependency: NVIDIA Codec Headers v${{ env.FFNVCODEC_VERSION }} (MIT, shared)"
@@ -181,34 +190,41 @@ jobs:
         popd > /dev/null
 
         if (( "${{ steps.version.outputs.major }}" >= 4 )); then
-          echo "::set-output name=flags::--enable-ffnvcodec --enable-nvdec --enable-cuvid --enable-nvenc"
+          # echo "::set-output name=flags::--enable-ffnvcodec --enable-nvdec --enable-cuvid --enable-nvenc"
         elif (( "${{ steps.version.outputs.major }}" >= 3 )); then
           if (( "${{ steps.version.outputs.minor }}" >= 2 )); then
             # 3.2+ has cuda, cuvid, nvenc
-            echo "::set-output name=flags::--enable-cuvid --enable-nvenc"
+            # echo "::set-output name=flags::--enable-cuvid --enable-nvenc"
           elif (( "${{ steps.version.outputs.minor }}" >= 1 )); then
             # 3.1 has cuda, nvenc
-            echo "::set-output name=flags::--enable-nvenc"
+            # echo "::set-output name=flags::--enable-nvenc"
           elif (( "${{ steps.version.outputs.minor }}" >= 0 )); then
             # 3.0 has nvenc
-            echo "::set-output name=flags::--enable-nvenc"
+            # echo "::set-output name=flags::--enable-nvenc"
           fi
         fi
 
-# AMD AMF (FFmpeg 4.0 and up)
-    - name: "dependency: AMD AMF (v${{ env.AMF_VERSION }}, MIT, shared)"
-      if: ${{ steps.version.outputs.major >= 4 }}
-      id: amf
+# libx264 (FFmpeg 0.5 and up, arbitrarily limited to 1.0 because I'm lazy)
+    - name: "dependency: x264 v${{ env.X264_VERSION }} (GPLv2, shared)"
+      if: ${{ (steps.version.outputs.major >= 1) && startsWith(matrix.license, 'GPL') }}
+      id: x264
       shell: bash
       run: |
-        git clone --depth 1 --branch ${AMF_VERSION} "https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git" /tmp/amd-amf
-        pushd "/tmp/amd-amf"
-        sudo cp -R amf/public/include/ /usr/${{ steps.data.outputs.cross_prefix }}/include/AMF
-        popd
+        curl -L -o "/tmp/x264.zip" "https://github.com/Xaymar/x264/releases/download/${X264_VERSION}/x264-${{ matrix.bits }}-shared-GPLv2.zip"
+        7z x -o/tmp/x264/ "/tmp/x264.zip"
+        sudo cp -a /tmp/x264/. /usr/${{ steps.data.outputs.cross_prefix }}/
+        cp -a /tmp/x264/bin/*.dll ./distrib/bin/
+        # echo "::set-output name=flags::--enable-libx264"
 
-        if (( "${{ steps.version.outputs.major }}" >= 4 )); then
-          echo "::set-output name=flags::--enable-amf"
-        fi
+# zlib-ng
+    - name: "dependency: zlib-ng v${{ env.ZLIB_NG_VERSION }} (Zlib license, shared)"
+      id: zlib
+      shell: bash
+      run: |
+        curl -L -o "/tmp/zlib.zip" "https://github.com/Xaymar/zlib-ng/releases/download/${ZLIB_NG_VERSION}/zlib-ng-${{ matrix.bits }}.zip"
+        7z x -o/tmp/zlib/ "/tmp/zlib.zip"
+        sudo cp -a /tmp/zlib/. /usr/${{ steps.data.outputs.cross_prefix }}/
+        cp -a /tmp/zlib/bin/*.dll ./distrib/bin/
 
 # Configure FFmpeg
     - name: "ffmpeg: Configure"
@@ -230,6 +246,7 @@ jobs:
           ${{ steps.data.outputs.flags_license }} ${{ steps.data.outputs.flags_license_version }} \
           ${{ steps.data.outputs.flags_type }} \
           ${{ steps.x264.outputs.flags }} \
+          ${{ steps.aom.outputs.flags }} \
           ${{ steps.ffnvcodec.outputs.flags }} \
           ${{ steps.amf.outputs.flags }}
 
