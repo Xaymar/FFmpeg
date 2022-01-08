@@ -158,9 +158,9 @@ jobs:
         sudo cp -R amf/public/include/ /usr/${{ steps.data.outputs.cross_prefix }}/include/AMF
         popd
 
-        if (( "${{ steps.version.outputs.major }}" >= 4 )); then
-          echo "::set-output name=flags::--enable-amf"
-        fi
+        #if (( "${{ steps.version.outputs.major }}" >= 4 )); then
+        #  echo "::set-output name=flags::--enable-amf"
+        #fi
 
 # AOM (FFmpeg 4.0 and up)
     - name: "dependency: AOM ${{ env.AOM_VERSION}} (BSD 2-clause, shared)"
@@ -174,7 +174,7 @@ jobs:
         cp /tmp/aom/lib/pkgconfig/aom.pc /tmp/aom/lib/pkgconfig/libaom.pc
         sudo cp -a /tmp/aom/. /usr/${{ steps.data.outputs.cross_prefix }}/
         cp -a /tmp/aom/bin/*.dll ./distrib/bin/
-        echo "::set-output name=flags::--enable-libaom"
+        #echo "::set-output name=flags::--enable-libaom"
 
 
 # NVIDIA Codec Headers (FFmpeg 3.0 and up)
@@ -189,20 +189,20 @@ jobs:
         sudo make PREFIX=/usr/${{ steps.data.outputs.cross_prefix }} install
         popd > /dev/null
 
-        if (( "${{ steps.version.outputs.major }}" >= 4 )); then
-          # echo "::set-output name=flags::--enable-ffnvcodec --enable-nvdec --enable-cuvid --enable-nvenc"
-        elif (( "${{ steps.version.outputs.major }}" >= 3 )); then
-          if (( "${{ steps.version.outputs.minor }}" >= 2 )); then
-            # 3.2+ has cuda, cuvid, nvenc
-            # echo "::set-output name=flags::--enable-cuvid --enable-nvenc"
-          elif (( "${{ steps.version.outputs.minor }}" >= 1 )); then
-            # 3.1 has cuda, nvenc
-            # echo "::set-output name=flags::--enable-nvenc"
-          elif (( "${{ steps.version.outputs.minor }}" >= 0 )); then
-            # 3.0 has nvenc
-            # echo "::set-output name=flags::--enable-nvenc"
-          fi
-        fi
+        #if (( "${{ steps.version.outputs.major }}" >= 4 )); then
+        #  echo "::set-output name=flags::--enable-ffnvcodec --enable-nvdec --enable-cuvid --enable-nvenc"
+        #elif (( "${{ steps.version.outputs.major }}" >= 3 )); then
+        #  if (( "${{ steps.version.outputs.minor }}" >= 2 )); then
+        #    # 3.2+ has cuda, cuvid, nvenc
+        #    echo "::set-output name=flags::--enable-cuvid --enable-nvenc"
+        #  elif (( "${{ steps.version.outputs.minor }}" >= 1 )); then
+        #    # 3.1 has cuda, nvenc
+        #    echo "::set-output name=flags::--enable-nvenc"
+        #  elif (( "${{ steps.version.outputs.minor }}" >= 0 )); then
+        #    # 3.0 has nvenc
+        #    echo "::set-output name=flags::--enable-nvenc"
+        #  fi
+        #fi
 
 # libx264 (FFmpeg 0.5 and up, arbitrarily limited to 1.0 because I'm lazy)
     - name: "dependency: x264 v${{ env.X264_VERSION }} (GPLv2, shared)"
@@ -214,7 +214,7 @@ jobs:
         7z x -o/tmp/x264/ "/tmp/x264.zip"
         sudo cp -a /tmp/x264/. /usr/${{ steps.data.outputs.cross_prefix }}/
         cp -a /tmp/x264/bin/*.dll ./distrib/bin/
-        # echo "::set-output name=flags::--enable-libx264"
+        #echo "::set-output name=flags::--enable-libx264"
 
 # zlib-ng
     - name: "dependency: zlib-ng v${{ env.ZLIB_NG_VERSION }} (Zlib license, shared)"
