@@ -2,9 +2,9 @@ export PKG_CONFIG_PATH=/usr/${BUILD_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}
 
 # Configure FFmpeg
 ./configure \
-	--arch=${BUILD_ARCH} \
-	--target-os=${BUILD_TARGET} \
-	--cross-prefix=${BUILD_PREFIX}- \
+	--arch="${BUILD_ARCH}" \
+	--target-os="${BUILD_TARGET}" \
+	--cross-prefix="${BUILD_PREFIX}-" \
 	--prefix="${PWD}/distrib" \
 	--bindir="${PWD}/distrib/bin" \
 	--libdir="${PWD}/distrib/lib" \

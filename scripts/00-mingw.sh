@@ -2,8 +2,7 @@
 
 REPOSITORY="https://github.com/mirror/mingw-w64.git"
 
-CROSS_TOOLCHAIN=$1
-GCC_SYSROOT="`${CROSS_TOOLCHAIN}-gcc -print-sysroot`"
+GCC_SYSROOT="`${BUILD_PREFIX}-gcc -print-sysroot`"
 
 mingw_clone() {
 	if [ ! -d /tmp/mingw ]; then
@@ -30,9 +29,9 @@ mingw_build_crt() {
 
 	# Configure MinGW
 	local mingw_configure=(
-		--prefix="${GCC_SYSROOT}/usr/${CROSS_TOOLCHAIN}"
+		--prefix="${GCC_SYSROOT}/usr/${BUILD_PREFIX}"
 #		--host=`gcc -dumpmachine`
-		--host="${CROSS_TOOLCHAIN}"
+		--host="${BUILD_PREFIX}"
 		--enable-lib32
 		--enable-lib64
 	)
@@ -61,9 +60,9 @@ mingw_build_headers() {
 
 	# Configure MinGW
 	local mingw_configure=(
-		--prefix="${GCC_SYSROOT}/usr/${CROSS_TOOLCHAIN}"
+		--prefix="${GCC_SYSROOT}/usr/${BUILD_PREFIX}"
 #		--host=`gcc -dumpmachine`
-		--host="${CROSS_TOOLCHAIN}"
+		--host="${BUILD_PREFIX}"
 		--with-default-win32-winnt="0x0601"
 		--enable-idl
 	)
@@ -92,8 +91,8 @@ mingw_build_library_winpthreads() {
 
 	# Configure MinGW
 	local mingw_configure=(
-		--prefix="${GCC_SYSROOT}/usr/${CROSS_TOOLCHAIN}"
-		--host="${CROSS_TOOLCHAIN}"
+		--prefix="${GCC_SYSROOT}/usr/${BUILD_PREFIX}"
+		--host="${BUILD_PREFIX}"
 		--disable-shared
 		--enable-static
 		--with-pic

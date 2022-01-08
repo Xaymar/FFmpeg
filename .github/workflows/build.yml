@@ -76,7 +76,8 @@ jobs:
         echo "FFmpeg v${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}.${VERSION_TWEAK}-${COMMIT}"
 
     - name: "automation: Apply Patches"
-      if:  ${{ github.event.inputs.apply_patches == 'true' }}
+      if:  ${{ (matrix.patches == true) }}
+      id: patch
       env:
         VERSION_MAJOR: ${{ steps.bootstrap.outputs.VERSION_MAJOR }}
         VERSION_MINOR: ${{ steps.bootstrap.outputs.VERSION_MINOR }}
@@ -86,6 +87,7 @@ jobs:
       shell: bash
       run: |
         . ${SCRIPTROOT}/addons/patch.sh
+        echo "::set-output name=name::-patched"
 
     - name: "automation: Run scripts"
       env:
@@ -168,13 +170,8 @@ jobs:
 #         sudo cp -a /tmp/zlib/. /usr/${{ steps.data.outputs.cross_prefix }}/
 #         cp -a /tmp/zlib/bin/*.dll ./distrib/bin/
 
-# # Configure FFmpeg
-#     - name: "ffmpeg: Configure"
-#       shell: bash
-#       run: |
-
     - name: "automation: Upload Artifacts"
       uses: actions/upload-artifact@v1
       with:
-        name: "ffmpeg-${{ matrix.license }}v${{ matrix.license_version }}-${{ matrix.bits}}-${{ matrix.type }}-${{ steps.bootstrap.outputs.VERSION_MAJOR }}.${{ steps.bootstrap.outputs.VERSION_MINOR }}.${{ steps.bootstrap.outputs.VERSION_PATCH }}.${{ steps.bootstrap.outputs.VERSION_TWEAK }}-${{ steps.bootstrap.outputs.COMMIT }}"
+        name: "ffmpeg-${{ matrix.license }}v${{ matrix.license_version }}-${{ matrix.bits}}-${{ matrix.type }}-${{ steps.bootstrap.outputs.VERSION_MAJOR }}.${{ steps.bootstrap.outputs.VERSION_MINOR }}.${{ steps.bootstrap.outputs.VERSION_PATCH }}.${{ steps.bootstrap.outputs.VERSION_TWEAK }}-${{ steps.bootstrap.outputs.COMMIT }}${{ steps.patch.outputs.name }}"
         path: distrib

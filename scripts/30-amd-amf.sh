@@ -5,7 +5,7 @@ function amd_amf() {
 		exit 0
 	fi
 
-	git clone --depth 1 --branch "${AMDAMF_VERISON}" "${REPOSITORY}" /tmp/amd-amf
+	git clone --depth 1 --branch "${AMDAMF_VERSION}" "${REPOSITORY}" /tmp/amd-amf
 	pushd /tmp/amd-amf > /dev/null
 	sudo cp -R amf/public/include/ /usr/${BUILD_PREFIX}/include/AMF
 	popd > /dev/null
