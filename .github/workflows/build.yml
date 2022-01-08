@@ -9,9 +9,9 @@ on:
 
 env:
   MINGW_VERSION: "v9.0.0"
+  AMDAMF_VERSION: "v1.4.23"
   X264_VERSION: "0.163.3060"
   FFNVCODEC_VERSION: "n11.0.10.0"
-  AMF_VERSION: "v1.4.18"
   ZLIB_NG_VERSION: "2.0.3"
   AOM_VERSION: "v3.1.2.115"
 
@@ -102,20 +102,7 @@ jobs:
       run: |
         . ${SCRIPTROOT}/addons/run.sh
 
-# # AMD AMF (FFmpeg 4.0 and up)
-#     - name: "dependency: AMD AMF ${{ env.AMF_VERSION }} (MIT, shared)"
-#       if: ${{ steps.version.outputs.major >= 4 }}
-#       id: amf
-#       shell: bash
-#       run: |
-#         git clone --depth 1 --branch ${AMF_VERSION} "https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git" /tmp/amd-amf
-#         pushd "/tmp/amd-amf"
-#         sudo cp -R amf/public/include/ /usr/${{ steps.data.outputs.cross_prefix }}/include/AMF
-#         popd
 
-#         #if (( "${{ steps.version.outputs.major }}" >= 4 )); then
-#         #  echo "::set-output name=flags::--enable-amf"
-#         #fi
 
 # # AOM (FFmpeg 4.0 and up)
 #     - name: "dependency: AOM ${{ env.AOM_VERSION}} (BSD 2-clause, shared)"
