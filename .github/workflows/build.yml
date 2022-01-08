@@ -8,6 +8,7 @@ on:
         default: 'master'
 
 env:
+  MINGW_VERSION: "v9.0.0"
   X264_VERSION: "0.163.3060"
   FFNVCODEC_VERSION: "n11.0.10.0"
   AMF_VERSION: "v1.4.18"
@@ -18,6 +19,7 @@ jobs:
   cc:
     runs-on: ubuntu-20.04
     strategy:
+      max-parallel: 2
       matrix:
         license: [ "LGPL", "GPL" ]
         license_version: [ 2, 3 ]
@@ -25,116 +27,28 @@ jobs:
         bits: [ 64 ]
         patches: [ false, true ]
     name: "Windows (${{ matrix.bits }}bit, ${{ matrix.type }}, ${{ matrix.license }}v${{ matrix.license_version}}, patched=${{ matrix.patches }})"
+    env:
+      BUILD_TYPE: ${{ matrix.type }}
+      BUILD_BITS: ${{ matrix.bits }}
+      LICENSE: ${{ matrix.license }}
+      LICENSE_VERSION: ${{ matrix.license_version }}
+      SCRIPTROOT: "/tmp"
     steps:
-    - name: "automation: Check out"
+    - name: "automation: Check-out"
       uses: actions/checkout@v2
       with:
         submodules: "recursive"
-        fetch-depth: 0
-
-    - name: "automation: Copy patches to safe directory"
-      if: ${{ matrix.patches  == 'true' }}
+        fetch-depth: 1
+        
+    - name: "automation: Copy things to safety"
       shell: bash
       run: |
-        if [[ -d ./patches ]]; then
-          cp -a ./patches /tmp/
-        fi
-
-    - name: "automation: Gather Information"
-      id: data
-      shell: bash
-      run: |
-        # Bitness
-        if [ "${{ matrix.bits }}" == "32" ]; then
-          echo "::set-output name=arch::i686"
-          echo "::set-output name=target_os::mingw32"
-          echo "::set-output name=cross_prefix::i686-w64-mingw32"
-        else
-          echo "::set-output name=arch::x86_64"
-          echo "::set-output name=target_os::mingw64"
-          echo "::set-output name=cross_prefix::x86_64-w64-mingw32"
-        fi
-
-        # License (GPL vs LGPL, v2 vs v3)
-        if  [ "${{ matrix.license }}" == "GPL" ]; then
-          echo "::set-output name=flags_license::--enable-gpl"
-        fi
-        if [ "${{ matrix.license_version }}" == "3" ]; then
-          echo "::set-output name=flags_license_version::--enable-version3"
-        fi
-
-        # Build Type
-        if [ "${{ matrix.type }}" == "static" ]; then
-          echo "::set-output name=flags_type::--enable-static --disable-shared"
-        else
-          echo "::set-output name=flags_type::--disable-static --enable-shared"
-        fi
-
-    - name: "ffmpeg: Check out ${{ github.event.inputs.ref }}"
-      uses: actions/checkout@v2
-      with:
-        ref: "${{ github.event.inputs.ref }}"
-        submodules: "recursive"
-        fetch-depth: 0
-
-    - name: "automation: Detect version (and apply patches if necessary)"
-      id: version
-      shell: bash
-      run: |
-        # Detect Major.Minor.Patch version
-        VERSION=( $(cat RELEASE | sed -E 's/\./ /gi') )
-        VERSION_MAJOR=${VERSION[0]}
-        VERSION_MINOR=${VERSION[1]}
-        if (( ${#VERSION[@]} == 3 )); then
-          VERSION_PATCH=${VERSION[2]}
-        else
-          VERSION_PATCH=0
-        fi
-
-        COMMIT="$(git rev-parse --short=8 HEAD)"
-        echo "FFmpeg v${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}-${COMMIT}"
-
-        # Apply available patches
-        if [[ "${{ matrix.patches }}" == "true" ]]; then
-          echo "Applying custom patches:"
-
-          declare -a PATCHES
-          if [[ "${{ github.event.inputs.ref }}" == "master" ]]; then
-            PATCHES[${#PATCHES[@]}]="master"
-          else
-            PATCHES[${#PATCHES[@]}]="${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}"
-            PATCHES[${#PATCHES[@]}]="${VERSION_MAJOR}.${VERSION_MINOR}"
-            PATCHES[${#PATCHES[@]}]="${VERSION_MAJOR}"
-          fi
-
-          for p in ${PATCHES[@]}; do
-            if [[ -d "/tmp/patches/${p}" ]]; then
-              echo "  Found patches for ${p}:"
-              for f in /tmp/patches/${p}/*.patch; do
-                echo "    ${f}..."
-                [ -e "$f" ] || continue
-                git apply "$f"
-              done
-            else
-              echo "  No patches for ${p}."
-            fi
-          done
-
-          VERSION_PATCH="${VERSION_PATCH}-patched"
-        fi
-
-        # Set Outputs
-        echo "::set-output name=major::${VERSION_MAJOR}"
-        echo "::set-output name=minor::${VERSION_MINOR}"
-        echo "::set-output name=patch::${VERSION_PATCH}"
-        echo "::set-output name=commit::${COMMIT}"
-
-        # Create distrib directory
-        mkdir distrib
-        mkdir distrib/bin
-        mkdir distrib/lib
-        mkdir distrib/include
-        mkdir distrib/share
+        # Copy important scripts to "safe" directory".
+        cp -R -f ./patches ${SCRIPTROOT}/patches
+        cp -R -f ./scripts ${SCRIPTROOT}/scripts
+        chmod +x ${SCRIPTROOT}/scripts/*.sh
+        cp -R -f ./addons ${SCRIPTROOT}/addons
+        chmod +x ${SCRIPTROOT}/addons/*.sh
 
     - name: "dependency: cmake, make, pkg-config, mingw, nasm"
       shell: bash
@@ -145,125 +59,135 @@ jobs:
           cmake make ninja-build \
           pkg-config \
           mingw-w64 mingw-w64-tools gcc-mingw-w64 g++-mingw-w64 \
-          nasm
+          nasm        
 
-# AMD AMF (FFmpeg 4.0 and up)
-    - name: "dependency: AMD AMF ${{ env.AMF_VERSION }} (MIT, shared)"
-      if: ${{ steps.version.outputs.major >= 4 }}
-      id: amf
+    - name: "ffmpeg: Check out '${{ github.event.inputs.ref }}'"
+      uses: actions/checkout@v2
+      with:
+        ref: "${{ github.event.inputs.ref }}"
+        submodules: "recursive"
+        fetch-depth: 0
+        
+    - name: "automation: Bootstrap"
+      id: bootstrap
       shell: bash
       run: |
-        git clone --depth 1 --branch ${AMF_VERSION} "https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git" /tmp/amd-amf
-        pushd "/tmp/amd-amf"
-        sudo cp -R amf/public/include/ /usr/${{ steps.data.outputs.cross_prefix }}/include/AMF
-        popd
+        . ${SCRIPTROOT}/addons/bootstrap.sh
+        echo "FFmpeg v${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}.${VERSION_TWEAK}-${COMMIT}"
 
-        #if (( "${{ steps.version.outputs.major }}" >= 4 )); then
-        #  echo "::set-output name=flags::--enable-amf"
-        #fi
-
-# AOM (FFmpeg 4.0 and up)
-    - name: "dependency: AOM ${{ env.AOM_VERSION}} (BSD 2-clause, shared)"
-      if: ${{ (steps.version.outputs.major >= 4) && (matrix.bits == 64) }}
-      id: aom
+    - name: "automation: Apply Patches"
+      if:  ${{ github.event.inputs.apply_patches == 'true' }}
+      env:
+        VERSION_MAJOR: ${{ steps.bootstrap.outputs.VERSION_MAJOR }}
+        VERSION_MINOR: ${{ steps.bootstrap.outputs.VERSION_MINOR }}
+        VERSION_PATCH: ${{ steps.bootstrap.outputs.VERSION_PATCH }}
+        VERSION_TWEAK: ${{ steps.bootstrap.outputs.VERSION_TWEAK }}
+        COMMIT: ${{ steps.bootstrap.outputs.COMMIT }}
       shell: bash
       run: |
-        curl -L -o "/tmp/aom.7z" "https://github.com/Xaymar/aom/releases/download/${AOM_VERSION}/aom-windows-${{ matrix.bits }}-shared.7z"
-        7z x -o/tmp/aom "/tmp/aom.7z"
-        sed -i -E "s/^prefix=.*$/prefix=\/usr\/${CROSS}/g" /tmp/aom/lib/pkgconfig/aom.pc
-        cp /tmp/aom/lib/pkgconfig/aom.pc /tmp/aom/lib/pkgconfig/libaom.pc
-        sudo cp -a /tmp/aom/. /usr/${{ steps.data.outputs.cross_prefix }}/
-        cp -a /tmp/aom/bin/*.dll ./distrib/bin/
-        #echo "::set-output name=flags::--enable-libaom"
+        . ${SCRIPTROOT}/addons/patch.sh
 
-
-# NVIDIA Codec Headers (FFmpeg 3.0 and up)
-    - name: "dependency: NVIDIA Codec Headers v${{ env.FFNVCODEC_VERSION }} (MIT, shared)"
-      if: ${{ steps.version.outputs.major >= 3 }}
-      id: ffnvcodec
+    - name: "automation: Run scripts"
+      env:
+        VERSION_MAJOR: ${{ steps.bootstrap.outputs.VERSION_MAJOR }}
+        VERSION_MINOR: ${{ steps.bootstrap.outputs.VERSION_MINOR }}
+        VERSION_PATCH: ${{ steps.bootstrap.outputs.VERSION_PATCH }}
+        VERSION_TWEAK: ${{ steps.bootstrap.outputs.VERSION_TWEAK }}
+        COMMIT: ${{ steps.bootstrap.outputs.COMMIT }}
+        BUILD_ARCH: ${{ steps.bootstrap.outputs.BUILD_ARCH }}
+        BUILD_TARGET: ${{ steps.bootstrap.outputs.BUILD_TARGET }}
+        BUILD_PREFIX: ${{ steps.bootstrap.outputs.BUILD_PREFIX }}
+        BUILD_FLAGS: ${{ steps.bootstrap.outputs.BUILD_FLAGS }}
       shell: bash
       run: |
-        git clone --depth 1 --branch ${FFNVCODEC_VERSION} "https://git.videolan.org/git/ffmpeg/nv-codec-headers.git" /tmp/nv-codec-headers
-        pushd "/tmp/nv-codec-headers" > /dev/null
-        make PREFIX=/usr/${{ steps.data.outputs.cross_prefix }}
-        sudo make PREFIX=/usr/${{ steps.data.outputs.cross_prefix }} install
-        popd > /dev/null
+        . ${SCRIPTROOT}/addons/run.sh
 
-        #if (( "${{ steps.version.outputs.major }}" >= 4 )); then
-        #  echo "::set-output name=flags::--enable-ffnvcodec --enable-nvdec --enable-cuvid --enable-nvenc"
-        #elif (( "${{ steps.version.outputs.major }}" >= 3 )); then
-        #  if (( "${{ steps.version.outputs.minor }}" >= 2 )); then
-        #    # 3.2+ has cuda, cuvid, nvenc
-        #    echo "::set-output name=flags::--enable-cuvid --enable-nvenc"
-        #  elif (( "${{ steps.version.outputs.minor }}" >= 1 )); then
-        #    # 3.1 has cuda, nvenc
-        #    echo "::set-output name=flags::--enable-nvenc"
-        #  elif (( "${{ steps.version.outputs.minor }}" >= 0 )); then
-        #    # 3.0 has nvenc
-        #    echo "::set-output name=flags::--enable-nvenc"
-        #  fi
-        #fi
+# # AMD AMF (FFmpeg 4.0 and up)
+#     - name: "dependency: AMD AMF ${{ env.AMF_VERSION }} (MIT, shared)"
+#       if: ${{ steps.version.outputs.major >= 4 }}
+#       id: amf
+#       shell: bash
+#       run: |
+#         git clone --depth 1 --branch ${AMF_VERSION} "https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git" /tmp/amd-amf
+#         pushd "/tmp/amd-amf"
+#         sudo cp -R amf/public/include/ /usr/${{ steps.data.outputs.cross_prefix }}/include/AMF
+#         popd
 
-# libx264 (FFmpeg 0.5 and up, arbitrarily limited to 1.0 because I'm lazy)
-    - name: "dependency: x264 v${{ env.X264_VERSION }} (GPLv2, shared)"
-      if: ${{ (steps.version.outputs.major >= 1) && startsWith(matrix.license, 'GPL') }}
-      id: x264
-      shell: bash
-      run: |
-        curl -L -o "/tmp/x264.zip" "https://github.com/Xaymar/x264/releases/download/${X264_VERSION}/x264-${{ matrix.bits }}-shared-GPLv2.zip"
-        7z x -o/tmp/x264/ "/tmp/x264.zip"
-        sudo cp -a /tmp/x264/. /usr/${{ steps.data.outputs.cross_prefix }}/
-        cp -a /tmp/x264/bin/*.dll ./distrib/bin/
-        #echo "::set-output name=flags::--enable-libx264"
+#         #if (( "${{ steps.version.outputs.major }}" >= 4 )); then
+#         #  echo "::set-output name=flags::--enable-amf"
+#         #fi
 
-# zlib-ng
-    - name: "dependency: zlib-ng v${{ env.ZLIB_NG_VERSION }} (Zlib license, shared)"
-      id: zlib
-      shell: bash
-      run: |
-        curl -L -o "/tmp/zlib.zip" "https://github.com/Xaymar/zlib-ng/releases/download/${ZLIB_NG_VERSION}/zlib-ng-${{ matrix.bits }}.zip"
-        7z x -o/tmp/zlib/ "/tmp/zlib.zip"
-        sudo cp -a /tmp/zlib/. /usr/${{ steps.data.outputs.cross_prefix }}/
-        cp -a /tmp/zlib/bin/*.dll ./distrib/bin/
+# # AOM (FFmpeg 4.0 and up)
+#     - name: "dependency: AOM ${{ env.AOM_VERSION}} (BSD 2-clause, shared)"
+#       if: ${{ (steps.version.outputs.major >= 4) && (matrix.bits == 64) }}
+#       id: aom
+#       shell: bash
+#       run: |
+#         curl -L -o "/tmp/aom.7z" "https://github.com/Xaymar/aom/releases/download/${AOM_VERSION}/aom-windows-${{ matrix.bits }}-shared.7z"
+#         7z x -o/tmp/aom "/tmp/aom.7z"
+#         sed -i -E "s/^prefix=.*$/prefix=\/usr\/${CROSS}/g" /tmp/aom/lib/pkgconfig/aom.pc
+#         cp /tmp/aom/lib/pkgconfig/aom.pc /tmp/aom/lib/pkgconfig/libaom.pc
+#         sudo cp -a /tmp/aom/. /usr/${{ steps.data.outputs.cross_prefix }}/
+#         cp -a /tmp/aom/bin/*.dll ./distrib/bin/
+#         #echo "::set-output name=flags::--enable-libaom"
 
-# Configure FFmpeg
-    - name: "ffmpeg: Configure"
-      shell: bash
-      run: |
-        export PKG_CONFIG_PATH=/usr/${{ steps.data.outputs.cross_prefix }}/lib/pkgconfig:${PKG_CONFIG_PATH}
-        ./configure \
-          --arch=${{ steps.data.outputs.arch }} \
-          --target-os=${{ steps.data.outputs.target_os }} \
-          --cross-prefix=${{ steps.data.outputs.cross_prefix }}- \
-          --prefix="${{ github.workspace }}/distrib" \
-          --bindir="${{ github.workspace }}/distrib/bin" \
-          --libdir="${{ github.workspace }}/distrib/lib" \
-          --shlibdir="${{ github.workspace }}/distrib/bin" \
-          --pkg-config=pkg-config \
-          --extra-cflags=-O3 --extra-cflags=-mmmx --extra-cflags=-msse --extra-cflags=-msse2 --extra-cflags=-msse3 --extra-cflags=-mssse3 \
-          --extra-cflags=-msse4.1 --extra-cflags=-msse4.2 --extra-cflags=-mavx --extra-cflags=-maes --extra-cflags=-mpclmul \
-          --pkg-config=pkg-config \
-          ${{ steps.data.outputs.flags_license }} ${{ steps.data.outputs.flags_license_version }} \
-          ${{ steps.data.outputs.flags_type }} \
-          ${{ steps.x264.outputs.flags }} \
-          ${{ steps.aom.outputs.flags }} \
-          ${{ steps.ffnvcodec.outputs.flags }} \
-          ${{ steps.amf.outputs.flags }}
 
-    - name: "ffmpeg: Compile"
-      shell: bash
-      run: |
-        make -j 4
+# # NVIDIA Codec Headers (FFmpeg 3.0 and up)
+#     - name: "dependency: NVIDIA Codec Headers v${{ env.FFNVCODEC_VERSION }} (MIT, shared)"
+#       if: ${{ steps.version.outputs.major >= 3 }}
+#       id: ffnvcodec
+#       shell: bash
+#       run: |
+#         git clone --depth 1 --branch ${FFNVCODEC_VERSION} "https://git.videolan.org/git/ffmpeg/nv-codec-headers.git" /tmp/nv-codec-headers
+#         pushd "/tmp/nv-codec-headers" > /dev/null
+#         make PREFIX=/usr/${{ steps.data.outputs.cross_prefix }}
+#         sudo make PREFIX=/usr/${{ steps.data.outputs.cross_prefix }} install
+#         popd > /dev/null
 
-    - name: "ffmpeg: Install"
-      shell: bash
-      run: |
-        make install
-        # Move .lib files which are in the wrong place.
-        mv ./distrib/bin/*.lib ./distrib/lib/
+#         #if (( "${{ steps.version.outputs.major }}" >= 4 )); then
+#         #  echo "::set-output name=flags::--enable-ffnvcodec --enable-nvdec --enable-cuvid --enable-nvenc"
+#         #elif (( "${{ steps.version.outputs.major }}" >= 3 )); then
+#         #  if (( "${{ steps.version.outputs.minor }}" >= 2 )); then
+#         #    # 3.2+ has cuda, cuvid, nvenc
+#         #    echo "::set-output name=flags::--enable-cuvid --enable-nvenc"
+#         #  elif (( "${{ steps.version.outputs.minor }}" >= 1 )); then
+#         #    # 3.1 has cuda, nvenc
+#         #    echo "::set-output name=flags::--enable-nvenc"
+#         #  elif (( "${{ steps.version.outputs.minor }}" >= 0 )); then
+#         #    # 3.0 has nvenc
+#         #    echo "::set-output name=flags::--enable-nvenc"
+#         #  fi
+#         #fi
+
+# # libx264 (FFmpeg 0.5 and up, arbitrarily limited to 1.0 because I'm lazy)
+#     - name: "dependency: x264 v${{ env.X264_VERSION }} (GPLv2, shared)"
+#       if: ${{ (steps.version.outputs.major >= 1) && startsWith(matrix.license, 'GPL') }}
+#       id: x264
+#       shell: bash
+#       run: |
+#         curl -L -o "/tmp/x264.zip" "https://github.com/Xaymar/x264/releases/download/${X264_VERSION}/x264-${{ matrix.bits }}-shared-GPLv2.zip"
+#         7z x -o/tmp/x264/ "/tmp/x264.zip"
+#         sudo cp -a /tmp/x264/. /usr/${{ steps.data.outputs.cross_prefix }}/
+#         cp -a /tmp/x264/bin/*.dll ./distrib/bin/
+#         #echo "::set-output name=flags::--enable-libx264"
+
+# # zlib-ng
+#     - name: "dependency: zlib-ng v${{ env.ZLIB_NG_VERSION }} (Zlib license, shared)"
+#       id: zlib
+#       shell: bash
+#       run: |
+#         curl -L -o "/tmp/zlib.zip" "https://github.com/Xaymar/zlib-ng/releases/download/${ZLIB_NG_VERSION}/zlib-ng-${{ matrix.bits }}.zip"
+#         7z x -o/tmp/zlib/ "/tmp/zlib.zip"
+#         sudo cp -a /tmp/zlib/. /usr/${{ steps.data.outputs.cross_prefix }}/
+#         cp -a /tmp/zlib/bin/*.dll ./distrib/bin/
+
+# # Configure FFmpeg
+#     - name: "ffmpeg: Configure"
+#       shell: bash
+#       run: |
 
     - name: "automation: Upload Artifacts"
       uses: actions/upload-artifact@v1
       with:
-        name: ffmpeg-${{ matrix.bits }}-${{ matrix.type }}-${{ matrix.license }}v${{ matrix.license_version }}-${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}-${{ steps.version.outputs.commit }}
+        name: "ffmpeg-${{ matrix.license }}v${{ matrix.license_version }}-${{ matrix.bits}}-${{ matrix.type }}-${{ steps.bootstrap.outputs.VERSION_MAJOR }}.${{ steps.bootstrap.outputs.VERSION_MINOR }}.${{ steps.bootstrap.outputs.VERSION_PATCH }}.${{ steps.bootstrap.outputs.VERSION_TWEAK }}-${{ steps.bootstrap.outputs.COMMIT }}"
         path: distrib
