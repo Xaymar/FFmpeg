@@ -16,7 +16,7 @@ export PKG_CONFIG_PATH=/usr/${BUILD_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}
 	${BUILD_FLAGS}
 
 # Compile FFmpeg
-make -j`nproc`
+make -j$((`nproc` * 2))
 
 # Install FFmpeg
 sudo make install
