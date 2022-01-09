@@ -10,8 +10,8 @@ on:
 env:
   MINGW_VERSION: "v9.0.0"
   AMDAMF_VERSION: "v1.4.23"
+  NVIDIANVENC_VERSION: "n11.0.10.0"
   X264_VERSION: "0.163.3060"
-  FFNVCODEC_VERSION: "n11.0.10.0"
   ZLIB_NG_VERSION: "2.0.3"
   AOM_VERSION: "v3.1.2.115"
 
@@ -103,35 +103,6 @@ jobs:
       shell: bash
       run: |
         . ${SCRIPTROOT}/addons/run.sh
-
-
-
-# # AOM (FFmpeg 4.0 and up)
-#     - name: "dependency: AOM ${{ env.AOM_VERSION}} (BSD 2-clause, shared)"
-#       if: ${{ (steps.version.outputs.major >= 4) && (matrix.bits == 64) }}
-#       id: aom
-#       shell: bash
-#       run: |
-#         curl -L -o "/tmp/aom.7z" "https://github.com/Xaymar/aom/releases/download/${AOM_VERSION}/aom-windows-${{ matrix.bits }}-shared.7z"
-#         7z x -o/tmp/aom "/tmp/aom.7z"
-#         sed -i -E "s/^prefix=.*$/prefix=\/usr\/${CROSS}/g" /tmp/aom/lib/pkgconfig/aom.pc
-#         cp /tmp/aom/lib/pkgconfig/aom.pc /tmp/aom/lib/pkgconfig/libaom.pc
-#         sudo cp -a /tmp/aom/. /usr/${{ steps.data.outputs.cross_prefix }}/
-#         cp -a /tmp/aom/bin/*.dll ./distrib/bin/
-#         #echo "::set-output name=flags::--enable-libaom"
-
-
-# # NVIDIA Codec Headers (FFmpeg 3.0 and up)
-#     - name: "dependency: NVIDIA Codec Headers v${{ env.FFNVCODEC_VERSION }} (MIT, shared)"
-#       if: ${{ steps.version.outputs.major >= 3 }}
-#       id: ffnvcodec
-#       shell: bash
-#       run: |
-#         git clone --depth 1 --branch ${FFNVCODEC_VERSION} "https://git.videolan.org/git/ffmpeg/nv-codec-headers.git" /tmp/nv-codec-headers
-#         pushd "/tmp/nv-codec-headers" > /dev/null
-#         make PREFIX=/usr/${{ steps.data.outputs.cross_prefix }}
-#         sudo make PREFIX=/usr/${{ steps.data.outputs.cross_prefix }} install
-#         popd > /dev/null
 
 #         #if (( "${{ steps.version.outputs.major }}" >= 4 )); then
 #         #  echo "::set-output name=flags::--enable-ffnvcodec --enable-nvdec --enable-cuvid --enable-nvenc"
