@@ -8,12 +8,12 @@ on:
         default: 'master'
 
 env:
-  MINGW_VERSION: "v9.0.0"
   AMDAMF_VERSION: "v1.4.23"
+  AOM_VERSION: "v3.1.2.115"
+  MINGW_VERSION: "v9.0.0"
   NVIDIANVENC_VERSION: "n11.0.10.0"
   X264_VERSION: "0.163.3060"
-  ZLIB_NG_VERSION: "2.0.3"
-  AOM_VERSION: "v3.1.2.115"
+  ZLIB_VERSION: "2.0.3"
 
 jobs:
   cc:
@@ -102,43 +102,6 @@ jobs:
       shell: bash
       run: |
         . ${SCRIPTROOT}/addons/run.sh
-
-#         #if (( "${{ steps.version.outputs.major }}" >= 4 )); then
-#         #  echo "::set-output name=flags::--enable-ffnvcodec --enable-nvdec --enable-cuvid --enable-nvenc"
-#         #elif (( "${{ steps.version.outputs.major }}" >= 3 )); then
-#         #  if (( "${{ steps.version.outputs.minor }}" >= 2 )); then
-#         #    # 3.2+ has cuda, cuvid, nvenc
-#         #    echo "::set-output name=flags::--enable-cuvid --enable-nvenc"
-#         #  elif (( "${{ steps.version.outputs.minor }}" >= 1 )); then
-#         #    # 3.1 has cuda, nvenc
-#         #    echo "::set-output name=flags::--enable-nvenc"
-#         #  elif (( "${{ steps.version.outputs.minor }}" >= 0 )); then
-#         #    # 3.0 has nvenc
-#         #    echo "::set-output name=flags::--enable-nvenc"
-#         #  fi
-#         #fi
-
-# # libx264 (FFmpeg 0.5 and up, arbitrarily limited to 1.0 because I'm lazy)
-#     - name: "dependency: x264 v${{ env.X264_VERSION }} (GPLv2, shared)"
-#       if: ${{ (steps.version.outputs.major >= 1) && startsWith(matrix.license, 'GPL') }}
-#       id: x264
-#       shell: bash
-#       run: |
-#         curl -L -o "/tmp/x264.zip" "https://github.com/Xaymar/x264/releases/download/${X264_VERSION}/x264-${{ matrix.bits }}-shared-GPLv2.zip"
-#         7z x -o/tmp/x264/ "/tmp/x264.zip"
-#         sudo cp -a /tmp/x264/. /usr/${{ steps.data.outputs.cross_prefix }}/
-#         cp -a /tmp/x264/bin/*.dll ./distrib/bin/
-#         #echo "::set-output name=flags::--enable-libx264"
-
-# # zlib-ng
-#     - name: "dependency: zlib-ng v${{ env.ZLIB_NG_VERSION }} (Zlib license, shared)"
-#       id: zlib
-#       shell: bash
-#       run: |
-#         curl -L -o "/tmp/zlib.zip" "https://github.com/Xaymar/zlib-ng/releases/download/${ZLIB_NG_VERSION}/zlib-ng-${{ matrix.bits }}.zip"
-#         7z x -o/tmp/zlib/ "/tmp/zlib.zip"
-#         sudo cp -a /tmp/zlib/. /usr/${{ steps.data.outputs.cross_prefix }}/
-#         cp -a /tmp/zlib/bin/*.dll ./distrib/bin/
 
     - name: "automation: Upload Artifacts"
       uses: actions/upload-artifact@v1
