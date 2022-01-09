@@ -19,7 +19,6 @@ jobs:
   cc:
     runs-on: ubuntu-20.04
     strategy:
-      max-parallel: 2
       matrix:
         license: [ "LGPL", "GPL" ]
         license_version: [ 2, 3 ]
