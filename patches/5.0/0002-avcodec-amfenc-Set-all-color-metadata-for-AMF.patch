@@ -1,0 +1,177 @@
+From d6a48f863ffe0ae2968aa487b571a1a68412522d Mon Sep 17 00:00:00 2001
+Message-Id: <d6a48f863ffe0ae2968aa487b571a1a68412522d.1642029358.git.info@xaymar.com>
+In-Reply-To: <a440dce6b5c8b90e80660641d632c60a4cc1c1bd.1642029358.git.info@xaymar.com>
+References: <a440dce6b5c8b90e80660641d632c60a4cc1c1bd.1642029358.git.info@xaymar.com>
+From: Michael Fabian 'Xaymar' Dirks <michael.dirks@xaymar.com>
+Date: Tue, 11 Jan 2022 08:15:59 +0100
+Subject: [PATCH 2/5] avcodec/amfenc: Set all color metadata for AMF
+
+Fixes the color information in the output from the AMD encoder
+being wrong, which led to weird transcoding results. This
+problem appeared out of thin air, and I've been unable to tie
+it to a specific driver that supports my hardware. Unfortunately
+this requires AMF SDK version 1.4.23 or later, but it should
+still work fine on older drivers.
+
+Theoretical support for HDR encoding is also now possible,
+although the implementation is not complete. I have no clear
+idea on how to generate AMFs HDR metadata structure, or where
+to even take this information from.
+---
+ libavcodec/amfenc.h      |  1 +
+ libavcodec/amfenc_h264.c | 48 +++++++++++++++++++++++++++++++++++++-
+ libavcodec/amfenc_hevc.c | 50 ++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 98 insertions(+), 1 deletion(-)
+
+diff --git a/libavcodec/amfenc.h b/libavcodec/amfenc.h
+index 358b2ef778..951e529362 100644
+--- a/libavcodec/amfenc.h
++++ b/libavcodec/amfenc.h
+@@ -21,6 +21,7 @@
+ 
+ #include <AMF/core/Factory.h>
+ 
++#include <AMF/components/ColorSpace.h>
+ #include <AMF/components/VideoEncoderVCE.h>
+ #include <AMF/components/VideoEncoderHEVC.h>
+ 
+diff --git a/libavcodec/amfenc_h264.c b/libavcodec/amfenc_h264.c
+index aeca99f7c6..009378e9f1 100644
+--- a/libavcodec/amfenc_h264.c
++++ b/libavcodec/amfenc_h264.c
+@@ -137,6 +137,8 @@ static av_cold int amf_encode_init_h264(AVCodecContext *avctx)
+     AMFRate                          framerate;
+     AMFSize                          framesize = AMFConstructSize(avctx->width, avctx->height);
+     int                              deblocking_filter = (avctx->flags & AV_CODEC_FLAG_LOOP_FILTER) ? 1 : 0;
++    amf_int64                        color_depth;
++    amf_int64                        color_profile;
+ 
+     if (avctx->framerate.num > 0 && avctx->framerate.den > 0) {
+         framerate = AMFConstructRate(avctx->framerate.num, avctx->framerate.den);
+@@ -194,10 +196,54 @@ static av_cold int amf_encode_init_h264(AVCodecContext *avctx)
+         AMF_ASSIGN_PROPERTY_RATIO(res, ctx->encoder, AMF_VIDEO_ENCODER_ASPECT_RATIO, ratio);
+     }
+ 
+-    /// Color Range (Partial/TV/MPEG or Full/PC/JPEG)
++    // Color Metadata
++    /// Color Range (Support for older Drivers)
+     if (avctx->color_range == AVCOL_RANGE_JPEG) {
+         AMF_ASSIGN_PROPERTY_BOOL(res, ctx->encoder, AMF_VIDEO_ENCODER_FULL_RANGE_COLOR, 1);
++    } else {
++        AMF_ASSIGN_PROPERTY_BOOL(res, ctx->encoder, AMF_VIDEO_ENCODER_FULL_RANGE_COLOR, 0);
++    }
++    /// Color Space & Depth
++    color_depth = AMF_COLOR_BIT_DEPTH_8;
++    color_profile = AMF_VIDEO_CONVERTER_COLOR_PROFILE_UNKNOWN;
++    switch (avctx->colorspace) {
++    case AVCOL_SPC_SMPTE170M:
++        if (avctx->color_range == AVCOL_RANGE_JPEG) {
++            color_profile = AMF_VIDEO_CONVERTER_COLOR_PROFILE_FULL_601;
++        } else {
++            color_profile = AMF_VIDEO_CONVERTER_COLOR_PROFILE_601;
++        }
++        break;
++    case AVCOL_SPC_BT709:
++        if (avctx->color_range == AVCOL_RANGE_JPEG) {
++            color_profile = AMF_VIDEO_CONVERTER_COLOR_PROFILE_FULL_709;
++        } else {
++            color_profile = AMF_VIDEO_CONVERTER_COLOR_PROFILE_709;
++        }
++        break;
++    case AVCOL_SPC_BT2020_NCL:
++    case AVCOL_SPC_BT2020_CL:
++        // !FIXME: Verify that this is correct on Hardware supporting it.
++        // !FIXME: Figure out how to decide on bit depth.
++        if (avctx->color_range == AVCOL_RANGE_JPEG) {
++            color_profile = AMF_VIDEO_CONVERTER_COLOR_PROFILE_FULL_2020;
++            color_depth = AMF_COLOR_BIT_DEPTH_10;
++        } else {
++            color_profile = AMF_VIDEO_CONVERTER_COLOR_PROFILE_2020;
++            color_depth = AMF_COLOR_BIT_DEPTH_10;
++        }
++        break;
+     }
++    AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_COLOR_BIT_DEPTH, color_depth);
++    AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_INPUT_COLOR_PROFILE, color_profile);
++    AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_OUTPUT_COLOR_PROFILE, color_profile);
++    /// Color Transfer Characteristics (AMF matches ISO/IEC)
++    AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_INPUT_TRANSFER_CHARACTERISTIC, (amf_int64)avctx->color_trc);
++    AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_OUTPUT_TRANSFER_CHARACTERISTIC, (amf_int64)avctx->color_trc);
++    /// Color Primaries (AMF matches ISO/IEC)
++    AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_INPUT_COLOR_PRIMARIES, (amf_int64)avctx->color_primaries);
++    AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_OUTPUT_COLOR_PRIMARIES, (amf_int64)avctx->color_primaries);
++    /// !TODO: AMF HDR Metadata generation
+ 
+     // autodetect rate control method
+     if (ctx->rate_control_mode == AMF_VIDEO_ENCODER_RATE_CONTROL_METHOD_UNKNOWN) {
+diff --git a/libavcodec/amfenc_hevc.c b/libavcodec/amfenc_hevc.c
+index 79541b9b2f..900e1482b4 100644
+--- a/libavcodec/amfenc_hevc.c
++++ b/libavcodec/amfenc_hevc.c
+@@ -104,6 +104,8 @@ static av_cold int amf_encode_init_hevc(AVCodecContext *avctx)
+     AMFRate             framerate;
+     AMFSize             framesize = AMFConstructSize(avctx->width, avctx->height);
+     int                 deblocking_filter = (avctx->flags & AV_CODEC_FLAG_LOOP_FILTER) ? 1 : 0;
++    amf_int64           color_depth;
++    amf_int64           color_profile;
+ 
+     if (avctx->framerate.num > 0 && avctx->framerate.den > 0) {
+         framerate = AMFConstructRate(avctx->framerate.num, avctx->framerate.den);
+@@ -152,6 +154,54 @@ static av_cold int amf_encode_init_hevc(AVCodecContext *avctx)
+         AMFRatio ratio = AMFConstructRatio(avctx->sample_aspect_ratio.num, avctx->sample_aspect_ratio.den);
+         AMF_ASSIGN_PROPERTY_RATIO(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_ASPECT_RATIO, ratio);
+     }
++    
++    // Color Metadata
++    /// Color Range (Support for older Drivers)
++    if (avctx->color_range == AVCOL_RANGE_JPEG) {
++        AMF_ASSIGN_PROPERTY_BOOL(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_NOMINAL_RANGE, 1);
++    } else {
++        AMF_ASSIGN_PROPERTY_BOOL(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_NOMINAL_RANGE, 0);
++    }
++    /// Color Space & Depth
++    color_depth = AMF_COLOR_BIT_DEPTH_8;
++    color_profile = AMF_VIDEO_CONVERTER_COLOR_PROFILE_UNKNOWN;
++    switch (avctx->colorspace) {
++    case AVCOL_SPC_SMPTE170M:
++        if (avctx->color_range == AVCOL_RANGE_JPEG) {
++            color_profile = AMF_VIDEO_CONVERTER_COLOR_PROFILE_FULL_601;
++        } else {
++            color_profile = AMF_VIDEO_CONVERTER_COLOR_PROFILE_601;
++        }
++        break;
++    case AVCOL_SPC_BT709:
++        if (avctx->color_range == AVCOL_RANGE_JPEG) {
++            color_profile = AMF_VIDEO_CONVERTER_COLOR_PROFILE_FULL_709;
++        } else {
++            color_profile = AMF_VIDEO_CONVERTER_COLOR_PROFILE_709;
++        }
++        break;
++    case AVCOL_SPC_BT2020_NCL:
++    case AVCOL_SPC_BT2020_CL:
++        // !FIXME: Verify that this is correct on Hardware supporting it.
++        // !FIXME: Figure out how to decide on bit depth.
++        if (avctx->color_range == AVCOL_RANGE_JPEG) {
++            color_profile = AMF_VIDEO_CONVERTER_COLOR_PROFILE_FULL_2020;
++            color_depth = AMF_COLOR_BIT_DEPTH_10;
++        } else {
++            color_profile = AMF_VIDEO_CONVERTER_COLOR_PROFILE_2020;
++            color_depth = AMF_COLOR_BIT_DEPTH_10;
++        }
++        break;
++    }
++    AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_COLOR_BIT_DEPTH, color_depth);
++    AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_INPUT_COLOR_PROFILE, color_profile);
++    AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_OUTPUT_COLOR_PROFILE, color_profile);
++    /// Color Transfer Characteristics (AMF matches ISO/IEC)
++    AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_INPUT_TRANSFER_CHARACTERISTIC, (amf_int64)avctx->color_trc);
++    AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_OUTPUT_TRANSFER_CHARACTERISTIC, (amf_int64)avctx->color_trc);
++    /// Color Primaries (AMF matches ISO/IEC)
++    AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_INPUT_COLOR_PRIMARIES, (amf_int64)avctx->color_primaries);
++    AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_OUTPUT_COLOR_PRIMARIES, (amf_int64)avctx->color_primaries);
+ 
+     // Picture control properties
+     AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_NUM_GOPS_PER_IDR, ctx->gops_per_idr);
+-- 
+2.34.1.windows.1
+

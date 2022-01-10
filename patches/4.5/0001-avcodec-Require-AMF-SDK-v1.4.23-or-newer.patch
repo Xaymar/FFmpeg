@@ -1,0 +1,30 @@
+From a440dce6b5c8b90e80660641d632c60a4cc1c1bd Mon Sep 17 00:00:00 2001
+Message-Id: <a440dce6b5c8b90e80660641d632c60a4cc1c1bd.1642029358.git.info@xaymar.com>
+From: Michael Fabian 'Xaymar' Dirks <michael.dirks@xaymar.com>
+Date: Mon, 10 Jan 2022 03:08:48 +0100
+Subject: [PATCH 1/5] avcodec: Require AMF SDK v1.4.23 or newer
+
+Increasing the minimum AMF SDK version allows us to support
+more recent hardware and drivers, which is necessary to fix
+some of the discrepancies between older and newer drivers on
+AMD hardware with FFmpeg.
+---
+ configure | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/configure b/configure
+index 1413122d87..515ec1a50f 100755
+--- a/configure
++++ b/configure
+@@ -6969,7 +6969,7 @@ fi
+ 
+ enabled amf &&
+     check_cpp_condition amf "AMF/core/Version.h" \
+-        "(AMF_VERSION_MAJOR << 48 | AMF_VERSION_MINOR << 32 | AMF_VERSION_RELEASE << 16 | AMF_VERSION_BUILD_NUM) >= 0x0001000400090000"
++        "AMF_FULL_VERSION >= AMF_MAKE_FULL_VERSION(1, 4, 23, 0)"
+ 
+ # Funny iconv installations are not unusual, so check it after all flags have been set
+ if enabled libc_iconv; then
+-- 
+2.34.1.windows.1
+

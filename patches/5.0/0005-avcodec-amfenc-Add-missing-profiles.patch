@@ -1,0 +1,52 @@
+From ebf6229908e96c3f8d6144b19fc42f5346e3b628 Mon Sep 17 00:00:00 2001
+Message-Id: <ebf6229908e96c3f8d6144b19fc42f5346e3b628.1642029358.git.info@xaymar.com>
+In-Reply-To: <a440dce6b5c8b90e80660641d632c60a4cc1c1bd.1642029358.git.info@xaymar.com>
+References: <a440dce6b5c8b90e80660641d632c60a4cc1c1bd.1642029358.git.info@xaymar.com>
+From: Michael Fabian 'Xaymar' Dirks <michael.dirks@xaymar.com>
+Date: Tue, 11 Jan 2022 08:24:11 +0100
+Subject: [PATCH 5/5] avcodec/amfenc: Add missing profiles
+
+Adds the missing profiles to the '-help encoder=xxx_amf' list,
+even if the user may never need these.
+---
+ libavcodec/amfenc_h264.c | 11 ++++++-----
+ libavcodec/amfenc_hevc.c |  1 +
+ 2 files changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/libavcodec/amfenc_h264.c b/libavcodec/amfenc_h264.c
+index 87a3bb6a73..ae21c60357 100644
+--- a/libavcodec/amfenc_h264.c
++++ b/libavcodec/amfenc_h264.c
+@@ -37,11 +37,12 @@ static const AVOption options[] = {
+     { "lowlatency_highqquality", "",                    0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_USAGE_LOW_LATENCY_HIGH_QUALITY }, 0, 0, VE, "usage" },
+ 
+     /// Profile,
+-    { "profile",        "Profile",              OFFSET(profile),AV_OPT_TYPE_INT,   { .i64 = AMF_VIDEO_ENCODER_PROFILE_MAIN                 }, AMF_VIDEO_ENCODER_PROFILE_BASELINE, AMF_VIDEO_ENCODER_PROFILE_CONSTRAINED_HIGH, VE, "profile" },
+-    { "main",           "",                     0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_PROFILE_MAIN                 }, 0, 0, VE, "profile" },
+-    { "high",           "",                     0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_PROFILE_HIGH                 }, 0, 0, VE, "profile" },
+-    { "constrained_baseline", "",               0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_PROFILE_CONSTRAINED_BASELINE }, 0, 0, VE, "profile" },
+-    { "constrained_high",     "",               0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_PROFILE_CONSTRAINED_HIGH     }, 0, 0, VE, "profile" },
++    { "profile",        "Profile",              OFFSET(profile), AV_OPT_TYPE_INT,   { .i64 = AMF_VIDEO_ENCODER_PROFILE_MAIN                 }, AMF_VIDEO_ENCODER_PROFILE_BASELINE, AMF_VIDEO_ENCODER_PROFILE_CONSTRAINED_HIGH, VE, "profile" },
++    { "baseline",       "",                     0,               AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_PROFILE_BASELINE             }, 0, 0, VE, "profile" },
++    { "main",           "",                     0,               AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_PROFILE_MAIN                 }, 0, 0, VE, "profile" },
++    { "high",           "",                     0,               AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_PROFILE_HIGH                 }, 0, 0, VE, "profile" },
++    { "constrained_baseline", "",               0,               AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_PROFILE_CONSTRAINED_BASELINE }, 0, 0, VE, "profile" },
++    { "constrained_high",     "",               0,               AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_PROFILE_CONSTRAINED_HIGH     }, 0, 0, VE, "profile" },
+ 
+     /// Profile Level
+     { "level",          "Profile Level",        OFFSET(level),  AV_OPT_TYPE_INT,   { .i64 = 0  }, 0, 62, VE, "level" },
+diff --git a/libavcodec/amfenc_hevc.c b/libavcodec/amfenc_hevc.c
+index 565be9bad9..a69f37e7b1 100644
+--- a/libavcodec/amfenc_hevc.c
++++ b/libavcodec/amfenc_hevc.c
+@@ -34,6 +34,7 @@ static const AVOption options[] = {
+ 
+     { "profile",        "Set the profile (default main)",           OFFSET(profile),   AV_OPT_TYPE_INT,{ .i64 = AMF_VIDEO_ENCODER_HEVC_PROFILE_MAIN }, AMF_VIDEO_ENCODER_HEVC_PROFILE_MAIN, AMF_VIDEO_ENCODER_HEVC_PROFILE_MAIN, VE, "profile" },
+     { "main",           "", 0,                      AV_OPT_TYPE_CONST,{ .i64 = AMF_VIDEO_ENCODER_HEVC_PROFILE_MAIN }, 0, 0, VE, "profile" },
++    { "main10",         "", 0,                      AV_OPT_TYPE_CONST,{ .i64 = AMF_VIDEO_ENCODER_HEVC_PROFILE_MAIN_10 }, 0, 0, VE, "profile" },
+ 
+     { "profile_tier",   "Set the profile tier (default main)",      OFFSET(tier), AV_OPT_TYPE_INT,{ .i64 = AMF_VIDEO_ENCODER_HEVC_TIER_MAIN }, AMF_VIDEO_ENCODER_HEVC_TIER_MAIN, AMF_VIDEO_ENCODER_HEVC_TIER_HIGH, VE, "tier" },
+     { "main",           "", 0, AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_HEVC_TIER_MAIN }, 0, 0, VE, "tier" },
+-- 
+2.34.1.windows.1
+

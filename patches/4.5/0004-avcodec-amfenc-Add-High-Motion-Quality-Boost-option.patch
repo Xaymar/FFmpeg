@@ -1,0 +1,80 @@
+From 9cbaf2a700356682713bd01b2a6df3bc8d85c228 Mon Sep 17 00:00:00 2001
+Message-Id: <9cbaf2a700356682713bd01b2a6df3bc8d85c228.1642029358.git.info@xaymar.com>
+In-Reply-To: <a440dce6b5c8b90e80660641d632c60a4cc1c1bd.1642029358.git.info@xaymar.com>
+References: <a440dce6b5c8b90e80660641d632c60a4cc1c1bd.1642029358.git.info@xaymar.com>
+From: Michael Fabian 'Xaymar' Dirks <michael.dirks@xaymar.com>
+Date: Tue, 11 Jan 2022 08:23:37 +0100
+Subject: [PATCH 4/5] avcodec/amfenc: Add "High Motion Quality Boost" option
+
+This option was missing from amfenc, and is now available.
+---
+ libavcodec/amfenc.h      | 3 +++
+ libavcodec/amfenc_h264.c | 2 ++
+ libavcodec/amfenc_hevc.c | 3 ++-
+ 3 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/libavcodec/amfenc.h b/libavcodec/amfenc.h
+index 951e529362..f47e6a1200 100644
+--- a/libavcodec/amfenc.h
++++ b/libavcodec/amfenc.h
+@@ -108,6 +108,9 @@ typedef struct AmfContext {
+     int                 me_quarter_pel;
+     int                 aud;
+ 
++    // Unclear options, have different behavior based on codec.
++    int                 hmqb;
++
+     // HEVC - specific options
+ 
+     int                 gops_per_idr;
+diff --git a/libavcodec/amfenc_h264.c b/libavcodec/amfenc_h264.c
+index afac97a968..87a3bb6a73 100644
+--- a/libavcodec/amfenc_h264.c
++++ b/libavcodec/amfenc_h264.c
+@@ -86,6 +86,7 @@ static const AVOption options[] = {
+     { "filler_data",    "Filler Data Enable",                   OFFSET(filler_data),        AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, VE },
+     { "vbaq",           "Enable VBAQ",                          OFFSET(enable_vbaq),        AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, VE },
+     { "frame_skipping", "Rate Control Based Frame Skip",        OFFSET(skip_frame),         AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, VE },
++    { "hmqb",           "High Motion Quality Boost",            OFFSET(hmqb),               AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, VE },
+ 
+     /// QP Values
+     { "qp_i",           "Quantization Parameter for I-Frame",   OFFSET(qp_i),               AV_OPT_TYPE_INT, { .i64 = -1 }, -1, 51, VE },
+@@ -331,6 +332,7 @@ static av_cold int amf_encode_init_h264(AVCodecContext *avctx)
+     AMF_ASSIGN_PROPERTY_BOOL(res, ctx->encoder, AMF_VIDEO_ENCODER_ENFORCE_HRD, !!ctx->enforce_hrd);
+     AMF_ASSIGN_PROPERTY_BOOL(res, ctx->encoder, AMF_VIDEO_ENCODER_FILLER_DATA_ENABLE, !!ctx->filler_data);
+     AMF_ASSIGN_PROPERTY_BOOL(res, ctx->encoder, AMF_VIDEO_ENCODER_RATE_CONTROL_SKIP_FRAME_ENABLE, !!ctx->skip_frame);
++    AMF_ASSIGN_PROPERTY_BOOL(res, ctx->encoder, AMF_VIDEO_ENCODER_HIGH_MOTION_QUALITY_BOOST_ENABLE, !!ctx->hmqb);
+     if (ctx->rate_control_mode == AMF_VIDEO_ENCODER_RATE_CONTROL_METHOD_CONSTANT_QP) {
+         AMF_ASSIGN_PROPERTY_BOOL(res, ctx->encoder, AMF_VIDEO_ENCODER_ENABLE_VBAQ, 0);
+         if (ctx->enable_vbaq)
+diff --git a/libavcodec/amfenc_hevc.c b/libavcodec/amfenc_hevc.c
+index b7fee950f6..565be9bad9 100644
+--- a/libavcodec/amfenc_hevc.c
++++ b/libavcodec/amfenc_hevc.c
+@@ -74,6 +74,7 @@ static const AVOption options[] = {
+     { "gops_per_idr",    "GOPs per IDR 0-no IDR will be inserted",  OFFSET(gops_per_idr),  AV_OPT_TYPE_INT,  { .i64 = 1  },  0, INT_MAX, VE },
+     { "preanalysis",    "Enable preanalysis",                       OFFSET(preanalysis),   AV_OPT_TYPE_BOOL, { .i64 = 0  },  0, 1, VE},
+     { "vbaq",           "Enable VBAQ",                              OFFSET(enable_vbaq),   AV_OPT_TYPE_BOOL, { .i64 = 0  },  0, 1, VE},
++    { "hmqb",           "High Motion Quality Boost",                OFFSET(hmqb),          AV_OPT_TYPE_BOOL, { .i64 = 0  },  0, 1, VE },
+     { "enforce_hrd",    "Enforce HRD",                              OFFSET(enforce_hrd),   AV_OPT_TYPE_BOOL, { .i64 = 0  },  0, 1, VE},
+     { "filler_data",    "Filler Data Enable",                       OFFSET(filler_data),   AV_OPT_TYPE_BOOL, { .i64 = 0  },  0, 1, VE},
+     { "max_au_size",    "Maximum Access Unit Size for rate control (in bits)", OFFSET(max_au_size),   AV_OPT_TYPE_INT,{ .i64 = 0 }, 0, INT_MAX, VE},
+@@ -231,7 +232,6 @@ static av_cold int amf_encode_init_hevc(AVCodecContext *avctx)
+         }
+     }
+ 
+-
+     AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_RATE_CONTROL_METHOD, ctx->rate_control_mode);
+     if (avctx->rc_buffer_size) {
+         AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_VBV_BUFFER_SIZE, avctx->rc_buffer_size);
+@@ -253,6 +253,7 @@ static av_cold int amf_encode_init_hevc(AVCodecContext *avctx)
+     } else {
+         AMF_ASSIGN_PROPERTY_BOOL(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_ENABLE_VBAQ, !!ctx->enable_vbaq);
+     }
++    AMF_ASSIGN_PROPERTY_BOOL(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_HIGH_MOTION_QUALITY_BOOST_ENABLE, !!ctx->hmqb);
+     AMF_ASSIGN_PROPERTY_BOOL(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_MOTION_HALF_PIXEL, ctx->me_half_pel);
+     AMF_ASSIGN_PROPERTY_BOOL(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_MOTION_QUARTERPIXEL, ctx->me_quarter_pel);
+ 
+-- 
+2.34.1.windows.1
+

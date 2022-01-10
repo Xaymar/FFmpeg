@@ -1,0 +1,61 @@
+From d622fed60be525e5ff814f1eb703c67d3be0ed0e Mon Sep 17 00:00:00 2001
+Message-Id: <d622fed60be525e5ff814f1eb703c67d3be0ed0e.1642029358.git.info@xaymar.com>
+In-Reply-To: <a440dce6b5c8b90e80660641d632c60a4cc1c1bd.1642029358.git.info@xaymar.com>
+References: <a440dce6b5c8b90e80660641d632c60a4cc1c1bd.1642029358.git.info@xaymar.com>
+From: Michael Fabian 'Xaymar' Dirks <michael.dirks@xaymar.com>
+Date: Tue, 11 Jan 2022 08:22:16 +0100
+Subject: [PATCH 3/5] avcodec/amfenc: Add the new usage presets
+
+These enable some new features that otherwise require another
+AMF component to be loaded. Requires AMF SDK 1.4.23 or newer.
+---
+ libavcodec/amfenc_h264.c | 12 +++++++-----
+ libavcodec/amfenc_hevc.c |  6 ++++--
+ 2 files changed, 11 insertions(+), 7 deletions(-)
+
+diff --git a/libavcodec/amfenc_h264.c b/libavcodec/amfenc_h264.c
+index 009378e9f1..afac97a968 100644
+--- a/libavcodec/amfenc_h264.c
++++ b/libavcodec/amfenc_h264.c
+@@ -28,11 +28,13 @@
+ static const AVOption options[] = {
+     // Static
+     /// Usage
+-    { "usage",          "Encoder Usage",        OFFSET(usage),  AV_OPT_TYPE_INT,   { .i64 = AMF_VIDEO_ENCODER_USAGE_TRANSCONDING      }, AMF_VIDEO_ENCODER_USAGE_TRANSCONDING, AMF_VIDEO_ENCODER_USAGE_WEBCAM, VE, "usage" },
+-    { "transcoding",    "Generic Transcoding",  0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_USAGE_TRANSCONDING      }, 0, 0, VE, "usage" },
+-    { "ultralowlatency","",                     0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_USAGE_ULTRA_LOW_LATENCY }, 0, 0, VE, "usage" },
+-    { "lowlatency",     "",                     0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_USAGE_LOW_LATENCY       }, 0, 0, VE, "usage" },
+-    { "webcam",         "Webcam",               0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_USAGE_WEBCAM            }, 0, 0, VE, "usage" },
++    { "usage",                   "Encoder Usage",       OFFSET(usage),  AV_OPT_TYPE_INT,   { .i64 = AMF_VIDEO_ENCODER_USAGE_TRANSCODING              }, AMF_VIDEO_ENCODER_USAGE_TRANSCODING, AMF_VIDEO_ENCODER_USAGE_LOW_LATENCY_HIGH_QUALITY, VE, "usage" },
++    { "transcoding",             "Generic Transcoding", 0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_USAGE_TRANSCODING              }, 0, 0, VE, "usage" },
++    { "ultralowlatency",         "",                    0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_USAGE_ULTRA_LOW_LATENCY        }, 0, 0, VE, "usage" },
++    { "lowlatency",              "",                    0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_USAGE_LOW_LATENCY              }, 0, 0, VE, "usage" },
++    { "webcam",                  "Webcam",              0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_USAGE_WEBCAM                   }, 0, 0, VE, "usage" },
++    { "highquality",             "",                    0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_USAGE_HIGH_QUALITY             }, 0, 0, VE, "usage" },
++    { "lowlatency_highqquality", "",                    0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_USAGE_LOW_LATENCY_HIGH_QUALITY }, 0, 0, VE, "usage" },
+ 
+     /// Profile,
+     { "profile",        "Profile",              OFFSET(profile),AV_OPT_TYPE_INT,   { .i64 = AMF_VIDEO_ENCODER_PROFILE_MAIN                 }, AMF_VIDEO_ENCODER_PROFILE_BASELINE, AMF_VIDEO_ENCODER_PROFILE_CONSTRAINED_HIGH, VE, "profile" },
+diff --git a/libavcodec/amfenc_hevc.c b/libavcodec/amfenc_hevc.c
+index 900e1482b4..b7fee950f6 100644
+--- a/libavcodec/amfenc_hevc.c
++++ b/libavcodec/amfenc_hevc.c
+@@ -24,11 +24,13 @@
+ #define OFFSET(x) offsetof(AmfContext, x)
+ #define VE AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM
+ static const AVOption options[] = {
+-    { "usage",          "Set the encoding usage",             OFFSET(usage),          AV_OPT_TYPE_INT,   { .i64 = AMF_VIDEO_ENCODER_HEVC_USAGE_TRANSCONDING }, AMF_VIDEO_ENCODER_HEVC_USAGE_TRANSCONDING, AMF_VIDEO_ENCODER_HEVC_USAGE_WEBCAM, VE, "usage" },
+-    { "transcoding",    "", 0, AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_HEVC_USAGE_TRANSCONDING },         0, 0, VE, "usage" },
++    { "usage",          "Set the encoding usage",             OFFSET(usage),          AV_OPT_TYPE_INT,   { .i64 = AMF_VIDEO_ENCODER_HEVC_USAGE_TRANSCODING }, AMF_VIDEO_ENCODER_HEVC_USAGE_TRANSCODING, AMF_VIDEO_ENCODER_HEVC_USAGE_LOW_LATENCY_HIGH_QUALITY, VE, "usage" },
++    { "transcoding",    "", 0, AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_HEVC_USAGE_TRANSCODING },          0, 0, VE, "usage" },
+     { "ultralowlatency","", 0, AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_HEVC_USAGE_ULTRA_LOW_LATENCY },    0, 0, VE, "usage" },
+     { "lowlatency",     "", 0, AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_HEVC_USAGE_LOW_LATENCY },          0, 0, VE, "usage" },
+     { "webcam",         "", 0, AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_HEVC_USAGE_WEBCAM },               0, 0, VE, "usage" },
++    { "highquality",    "", 0, AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_HEVC_USAGE_HIGH_QUALITY },         0, 0, VE, "usage" },
++    { "lowlatency_highqquality", "", 0, AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_HEVC_USAGE_LOW_LATENCY_HIGH_QUALITY }, 0, 0, VE, "usage" },
+ 
+     { "profile",        "Set the profile (default main)",           OFFSET(profile),   AV_OPT_TYPE_INT,{ .i64 = AMF_VIDEO_ENCODER_HEVC_PROFILE_MAIN }, AMF_VIDEO_ENCODER_HEVC_PROFILE_MAIN, AMF_VIDEO_ENCODER_HEVC_PROFILE_MAIN, VE, "profile" },
+     { "main",           "", 0,                      AV_OPT_TYPE_CONST,{ .i64 = AMF_VIDEO_ENCODER_HEVC_PROFILE_MAIN }, 0, 0, VE, "profile" },
+-- 
+2.34.1.windows.1
+
