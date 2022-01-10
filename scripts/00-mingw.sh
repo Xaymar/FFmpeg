@@ -7,13 +7,13 @@ GCC_SYSROOT="`${BUILD_PREFIX}-gcc -print-sysroot`"
 mingw_clone() {
 	if [ ! -d /tmp/mingw ]; then
 		git clone -b "${MINGW_VERSION}" --depth 1 "${REPOSITORY}" /tmp/mingw
-		if [[ $? -ne 0 ]]; then exit 1; fi
+		if [[ $? -ne 0 ]]; then return 1; fi
 	else
 		pushd /tmp/mingw > /dev/null
 		git fetch --all
-		if [[ $? -ne 0 ]]; then exit 1; fi
+		if [[ $? -ne 0 ]]; then return 1; fi
 		git reset --hard "${MINGW_VERSION}"
-		if [[ $? -ne 0 ]]; then exit 1; fi
+		if [[ $? -ne 0 ]]; then return 1; fi
 		popd > /dev/null
 	fi
 }
@@ -36,15 +36,15 @@ mingw_build_crt() {
 		--enable-lib64
 	)
 	./configure ${mingw_configure[@]}
-	if [[ $? -ne 0 ]]; then exit 1; fi
+	if [[ $? -ne 0 ]]; then return 1; fi
 
 	# Build MinGW
 	make -j`nproc`
-	if [[ $? -ne 0 ]]; then exit 1; fi
+	if [[ $? -ne 0 ]]; then return 1; fi
 
 	# Install MinGW
 	sudo make install
-	if [[ $? -ne 0 ]]; then exit 1; fi
+	if [[ $? -ne 0 ]]; then return 1; fi
 
 	popd > /dev/null
 }
@@ -67,15 +67,15 @@ mingw_build_headers() {
 		--enable-idl
 	)
 	./configure ${mingw_configure[@]}
-	if [[ $? -ne 0 ]]; then exit 1; fi
+	if [[ $? -ne 0 ]]; then return 1; fi
 
 	# Build MinGW
 	make -j`nproc`
-	if [[ $? -ne 0 ]]; then exit 1; fi
+	if [[ $? -ne 0 ]]; then return 1; fi
 
 	# Install MinGW
 	sudo make install
-	if [[ $? -ne 0 ]]; then exit 1; fi
+	if [[ $? -ne 0 ]]; then return 1; fi
 
 	popd > /dev/null
 }
@@ -98,22 +98,22 @@ mingw_build_library_winpthreads() {
 		--with-pic
 	)
 	./configure ${mingw_configure[@]}
-	if [[ $? -ne 0 ]]; then exit 1; fi
+	if [[ $? -ne 0 ]]; then return 1; fi
 
 	# Build MinGW
 	make -j`nproc`
-	if [[ $? -ne 0 ]]; then exit 1; fi
+	if [[ $? -ne 0 ]]; then return 1; fi
 
 	# Install MinGW
 	sudo make install
-	if [[ $? -ne 0 ]]; then exit 1; fi
+	if [[ $? -ne 0 ]]; then return 1; fi
 
 	popd > /dev/null
 }
 
 mingw_build_libraries() {
 	mingw_build_library_winpthreads
-	if [[ $? -ne 0 ]]; then exit 1; fi
+	if [[ $? -ne 0 ]]; then return 1; fi
 }
 
 mingw_build() {
@@ -125,17 +125,17 @@ mingw_build() {
 	unset LDFLAGS
 	unset PKG_CONFIG_LIBDIR
 
-	mingw_build_crt
-	if [[ $? -ne 0 ]]; then exit 1; fi
-	mingw_build_headers
-	if [[ $? -ne 0 ]]; then exit 1; fi
-	mingw_build_libraries
-	if [[ $? -ne 0 ]]; then exit 1; fi
+	#mingw_build_crt
+	#if [[ $? -ne 0 ]]; then return 1; fi
+	#mingw_build_headers
+	#if [[ $? -ne 0 ]]; then return 1; fi
+	#mingw_build_libraries
+	#if [[ $? -ne 0 ]]; then return 1; fi
 
 	popd > /dev/null
 }
 
-#mingw_clone
+mingw_clone
 if [[ $? -ne 0 ]]; then exit 1; fi
-#mingw_build
+mingw_build
 if [[ $? -ne 0 ]]; then exit 1; fi
