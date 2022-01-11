@@ -108,6 +108,9 @@ typedef struct AmfContext {
     int                 me_quarter_pel;
     int                 aud;
 
+    // Unclear options, have different behavior based on codec.
+    int                 hmqb;
+
     // HEVC - specific options
 
     int                 gops_per_idr;
