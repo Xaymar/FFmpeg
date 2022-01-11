@@ -29,11 +29,13 @@
 static const AVOption options[] = {
     // Static
     /// Usage
-    { "usage",          "Encoder Usage",        OFFSET(usage),  AV_OPT_TYPE_INT,   { .i64 = AMF_VIDEO_ENCODER_USAGE_TRANSCONDING      }, AMF_VIDEO_ENCODER_USAGE_TRANSCONDING, AMF_VIDEO_ENCODER_USAGE_WEBCAM, VE, "usage" },
-    { "transcoding",    "Generic Transcoding",  0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_USAGE_TRANSCONDING      }, 0, 0, VE, "usage" },
-    { "ultralowlatency","",                     0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_USAGE_ULTRA_LOW_LATENCY }, 0, 0, VE, "usage" },
-    { "lowlatency",     "",                     0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_USAGE_LOW_LATENCY       }, 0, 0, VE, "usage" },
-    { "webcam",         "Webcam",               0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_USAGE_WEBCAM            }, 0, 0, VE, "usage" },
+    { "usage",                   "Encoder Usage",       OFFSET(usage),  AV_OPT_TYPE_INT,   { .i64 = AMF_VIDEO_ENCODER_USAGE_TRANSCODING              }, AMF_VIDEO_ENCODER_USAGE_TRANSCODING, AMF_VIDEO_ENCODER_USAGE_LOW_LATENCY_HIGH_QUALITY, VE, "usage" },
+    { "transcoding",             "Generic Transcoding", 0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_USAGE_TRANSCODING              }, 0, 0, VE, "usage" },
+    { "ultralowlatency",         "",                    0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_USAGE_ULTRA_LOW_LATENCY        }, 0, 0, VE, "usage" },
+    { "lowlatency",              "",                    0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_USAGE_LOW_LATENCY              }, 0, 0, VE, "usage" },
+    { "webcam",                  "Webcam",              0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_USAGE_WEBCAM                   }, 0, 0, VE, "usage" },
+    { "highquality",             "",                    0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_USAGE_HIGH_QUALITY             }, 0, 0, VE, "usage" },
+    { "lowlatency_highqquality", "",                    0,              AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_USAGE_LOW_LATENCY_HIGH_QUALITY }, 0, 0, VE, "usage" },
 
     /// Profile,
     { "profile",        "Profile",              OFFSET(profile),AV_OPT_TYPE_INT,   { .i64 = AMF_VIDEO_ENCODER_PROFILE_MAIN                 }, AMF_VIDEO_ENCODER_PROFILE_BASELINE, AMF_VIDEO_ENCODER_PROFILE_CONSTRAINED_HIGH, VE, "profile" },

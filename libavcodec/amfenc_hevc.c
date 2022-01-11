@@ -25,11 +25,13 @@
 #define OFFSET(x) offsetof(AmfContext, x)
 #define VE AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM
 static const AVOption options[] = {
-    { "usage",          "Set the encoding usage",             OFFSET(usage),          AV_OPT_TYPE_INT,   { .i64 = AMF_VIDEO_ENCODER_HEVC_USAGE_TRANSCONDING }, AMF_VIDEO_ENCODER_HEVC_USAGE_TRANSCONDING, AMF_VIDEO_ENCODER_HEVC_USAGE_WEBCAM, VE, "usage" },
-    { "transcoding",    "", 0, AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_HEVC_USAGE_TRANSCONDING },         0, 0, VE, "usage" },
+    { "usage",          "Set the encoding usage",             OFFSET(usage),          AV_OPT_TYPE_INT,   { .i64 = AMF_VIDEO_ENCODER_HEVC_USAGE_TRANSCODING }, AMF_VIDEO_ENCODER_HEVC_USAGE_TRANSCODING, AMF_VIDEO_ENCODER_HEVC_USAGE_LOW_LATENCY_HIGH_QUALITY, VE, "usage" },
+    { "transcoding",    "", 0, AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_HEVC_USAGE_TRANSCODING },          0, 0, VE, "usage" },
     { "ultralowlatency","", 0, AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_HEVC_USAGE_ULTRA_LOW_LATENCY },    0, 0, VE, "usage" },
     { "lowlatency",     "", 0, AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_HEVC_USAGE_LOW_LATENCY },          0, 0, VE, "usage" },
     { "webcam",         "", 0, AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_HEVC_USAGE_WEBCAM },               0, 0, VE, "usage" },
+    { "highquality",    "", 0, AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_HEVC_USAGE_HIGH_QUALITY },         0, 0, VE, "usage" },
+    { "lowlatency_highqquality", "", 0, AV_OPT_TYPE_CONST, { .i64 = AMF_VIDEO_ENCODER_HEVC_USAGE_LOW_LATENCY_HIGH_QUALITY }, 0, 0, VE, "usage" },
 
     { "profile",        "Set the profile (default main)",           OFFSET(profile),   AV_OPT_TYPE_INT,{ .i64 = AMF_VIDEO_ENCODER_HEVC_PROFILE_MAIN }, AMF_VIDEO_ENCODER_HEVC_PROFILE_MAIN, AMF_VIDEO_ENCODER_HEVC_PROFILE_MAIN, VE, "profile" },
     { "main",           "", 0,                      AV_OPT_TYPE_CONST,{ .i64 = AMF_VIDEO_ENCODER_HEVC_PROFILE_MAIN }, 0, 0, VE, "profile" },
