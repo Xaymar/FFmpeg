@@ -21,6 +21,7 @@
 
 #include <AMF/core/Factory.h>
 
+#include <AMF/components/ColorSpace.h>
 #include <AMF/components/VideoEncoderVCE.h>
 #include <AMF/components/VideoEncoderHEVC.h>
 
